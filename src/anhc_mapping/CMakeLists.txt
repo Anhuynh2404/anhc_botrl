@@ -21,6 +21,13 @@ if(BUILD_TESTING)
   ament_lint_auto_find_test_dependencies()
 endif()
 
+install(PROGRAMS
+  scripts/anhc_costmap_node.py
+  scripts/anhc_global_costmap_node.py
+  DESTINATION lib/${PROJECT_NAME}
+)
+
 install(DIRECTORY launch/ DESTINATION share/${PROJECT_NAME}/launch)
+install(DIRECTORY config/ DESTINATION share/${PROJECT_NAME}/config)
 
 ament_package()

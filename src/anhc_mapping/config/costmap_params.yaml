@@ -1,0 +1,13 @@
+anhc_costmap_node:
+  ros__parameters:
+    # robot_radius (0.30m) + safety_margin (0.15m) = 0.45m
+    inflation_radius: 0.45
+    cost_scaling_factor: 3.0
+    robot_radius: 0.30
+    update_rate: 2.0
+
+anhc_global_costmap_node:
+  ros__parameters:
+    inflation_radius: 0.45
+    cost_scaling_factor: 3.0
+    robot_radius: 0.30

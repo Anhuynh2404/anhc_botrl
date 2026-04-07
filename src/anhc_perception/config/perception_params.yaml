@@ -1,0 +1,22 @@
+anhc_pointcloud_processor_node:
+  ros__parameters:
+    voxel_leaf_size: 0.05
+    passthrough_min_z: -0.1
+    passthrough_max_z: 2.0
+    obstacle_min_z: 0.1
+    obstacle_max_z: 1.5
+    frame_id: lidar_link
+
+anhc_obstacle_detector_node:
+  ros__parameters:
+    dbscan_eps: 0.5
+    dbscan_min_samples: 5
+    max_obstacle_height: 1.5
+    marker_lifetime_sec: 0.5
+
+anhc_camera_processor_node:
+  ros__parameters:
+    canny_low: 50
+    canny_high: 150
+    depth_obstacle_threshold: 1.5
+    blur_kernel: 5
