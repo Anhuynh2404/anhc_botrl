@@ -1,0 +1,43 @@
+# ROS2 colcon build artifacts
+build/
+install/
+log/
+
+# Python artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+.eggs/
+*.egg
+.pytest_cache/
+
+# C++ / CMake
+*.o
+*.so
+*.a
+*.cmake
+CMakeCache.txt
+CMakeFiles/
+Makefile
+cmake_install.cmake
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Gazebo
+.gazebo/
+
+# Logs and temp files
+*.log
+*.tmp
+*.bak

@@ -1,0 +1,37 @@
+{
+  "names": {
+    "anhc_description": {
+      "dependencies": []
+    },
+    "anhc_simulation": {
+      "dependencies": ["anhc_description"]
+    },
+    "anhc_sensor_drivers": {
+      "dependencies": ["anhc_simulation"]
+    },
+    "anhc_localization": {
+      "dependencies": ["anhc_sensor_drivers"]
+    },
+    "anhc_perception": {
+      "dependencies": ["anhc_localization"]
+    },
+    "anhc_mapping": {
+      "dependencies": ["anhc_perception"]
+    },
+    "anhc_planning": {
+      "dependencies": ["anhc_mapping"]
+    },
+    "anhc_control": {
+      "dependencies": ["anhc_planning"]
+    },
+    "anhc_behavior": {
+      "dependencies": ["anhc_control"]
+    },
+    "anhc_benchmark": {
+      "dependencies": ["anhc_behavior"]
+    },
+    "anhc_viz": {
+      "dependencies": ["anhc_benchmark"]
+    }
+  }
+}
