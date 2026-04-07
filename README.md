@@ -86,6 +86,21 @@ source install/setup.bash
 ./scripts/launch_all.sh
 ```
 
+Mở Gazebo GUI (default mới)
+```bash
+ros2 launch anhc_simulation anhc_full_system.launch.py algorithm:=astar
+```
+
+Chạy headless (không GUI, tiết kiệm RAM/CPU)
+```bash
+ros2 launch anhc_simulation anhc_full_system.launch.py algorithm:=astar gz_extra_args:=-s
+```
+
+Mở cả Gazebo GUI + RViz2
+```bash
+ros2 launch anhc_simulation anhc_full_system.launch.py algorithm:=astar use_rviz:=true
+```
+
 ## Clean
 
 ```bash

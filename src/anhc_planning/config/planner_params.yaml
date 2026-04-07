@@ -1,0 +1,15 @@
+anhc_global_planner:
+  ros__parameters:
+    algorithm: "astar"
+    astar:
+      weight: 1.0
+      allow_diagonal: true
+    dijkstra:
+      allow_diagonal: true
+
+anhc_path_follower:
+  ros__parameters:
+    max_linear_speed: 0.5
+    max_angular_speed: 1.0
+    lookahead_distance: 0.5
+    goal_tolerance_m: 0.15
