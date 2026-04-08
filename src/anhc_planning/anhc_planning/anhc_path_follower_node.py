@@ -38,15 +38,24 @@ class AnhcPathFollowerNode(Node):
         super().__init__("anhc_path_follower")
 
         self.declare_parameter("max_linear_speed", 0.5)
+        self.declare_parameter("min_linear_speed", 0.08)
         self.declare_parameter("max_angular_speed", 1.0)
         self.declare_parameter("lookahead_distance", 0.5)
         self.declare_parameter("goal_tolerance_m", 0.15)
+        self.declare_parameter("curvature_slowdown_gain", 0.8)
+        self.declare_parameter("rotate_in_place_angle_rad", 1.0)
+        self.declare_parameter("rotate_in_place_angular_speed", 0.8)
+        self.declare_parameter("max_linear_accel", 0.6)
+        self.declare_parameter("max_angular_accel", 2.0)
 
         self._path: list[tuple[float, float]] = []
+        self._path_idx: int = 0
         self._robot_x: float = 0.0
         self._robot_y: float = 0.0
         self._robot_yaw: float = 0.0
         self._obstacle_stop: bool = False
+        self._last_linear_cmd: float = 0.0
+        self._last_angular_cmd: float = 0.0
 
         self._sub_path = self.create_subscription(
             Path, "/planning/path", self._cb_path, 10
@@ -60,7 +69,8 @@ class AnhcPathFollowerNode(Node):
 
         self._pub_cmd = self.create_publisher(Twist, "/cmd_vel", 10)
 
-        self._timer = self.create_timer(0.05, self._control_loop)
+        self._control_dt = 0.05
+        self._timer = self.create_timer(self._control_dt, self._control_loop)
 
         self.get_logger().info("[anhc_path_follower] started")
 
@@ -72,6 +82,7 @@ class AnhcPathFollowerNode(Node):
         self._path = [
             (p.pose.position.x, p.pose.position.y) for p in msg.poses
         ]
+        self._path_idx = 0
         self.get_logger().info(
             f"[anhc_path_follower] received path with {len(self._path)} poses"
         )
@@ -95,6 +106,8 @@ class AnhcPathFollowerNode(Node):
         cmd = Twist()
 
         if self._obstacle_stop or not self._path:
+            self._last_linear_cmd = 0.0
+            self._last_angular_cmd = 0.0
             self._pub_cmd.publish(cmd)
             return
 
@@ -123,8 +136,16 @@ class AnhcPathFollowerNode(Node):
         max_v = (
             self.get_parameter("max_linear_speed").get_parameter_value().double_value
         )
+        min_v = (
+            self.get_parameter("min_linear_speed").get_parameter_value().double_value
+        )
         max_w = (
             self.get_parameter("max_angular_speed").get_parameter_value().double_value
+        )
+        curv_gain = (
+            self.get_parameter("curvature_slowdown_gain")
+            .get_parameter_value()
+            .double_value
         )
 
         dx = target[0] - self._robot_x
@@ -137,12 +158,49 @@ class AnhcPathFollowerNode(Node):
             self._pub_cmd.publish(cmd)
             return
 
-        curvature = 2.0 * math.sin(alpha) / dist
-        linear_v = max_v * max(0.0, 1.0 - abs(alpha) / math.pi)
-        angular_v = linear_v * curvature
+        rotate_angle = (
+            self.get_parameter("rotate_in_place_angle_rad")
+            .get_parameter_value()
+            .double_value
+        )
+        rotate_w = (
+            self.get_parameter("rotate_in_place_angular_speed")
+            .get_parameter_value()
+            .double_value
+        )
 
-        cmd.linear.x = float(max(0.0, min(linear_v, max_v)))
-        cmd.angular.z = float(max(-max_w, min(angular_v, max_w)))
+        if abs(alpha) > rotate_angle:
+            desired_linear = 0.0
+            desired_angular = max(-rotate_w, min(rotate_w, 1.5 * alpha))
+        else:
+            curvature = 2.0 * math.sin(alpha) / dist
+            desired_linear = max_v / (1.0 + curv_gain * abs(curvature))
+            desired_linear = max(min_v, min(desired_linear, max_v))
+            desired_angular = desired_linear * curvature
+
+        desired_linear = float(max(0.0, min(desired_linear, max_v)))
+        desired_angular = float(max(-max_w, min(desired_angular, max_w)))
+
+        max_lin_acc = (
+            self.get_parameter("max_linear_accel").get_parameter_value().double_value
+        )
+        max_ang_acc = (
+            self.get_parameter("max_angular_accel").get_parameter_value().double_value
+        )
+        lin_step = max_lin_acc * self._control_dt
+        ang_step = max_ang_acc * self._control_dt
+
+        linear_cmd = self._last_linear_cmd + max(
+            -lin_step, min(lin_step, desired_linear - self._last_linear_cmd)
+        )
+        angular_cmd = self._last_angular_cmd + max(
+            -ang_step, min(ang_step, desired_angular - self._last_angular_cmd)
+        )
+
+        cmd.linear.x = float(max(0.0, min(linear_cmd, max_v)))
+        cmd.angular.z = float(max(-max_w, min(angular_cmd, max_w)))
+        self._last_linear_cmd = cmd.linear.x
+        self._last_angular_cmd = cmd.angular.z
         self._pub_cmd.publish(cmd)
 
     # ------------------------------------------------------------------
@@ -152,16 +210,32 @@ class AnhcPathFollowerNode(Node):
     def _find_lookahead_point(
         self, lookahead: float
     ) -> tuple[float, float] | None:
-        """Return the first waypoint beyond the lookahead distance."""
-        best = None
-        for wx, wy in self._path:
-            d = math.hypot(wx - self._robot_x, wy - self._robot_y)
-            if d >= lookahead:
-                best = (wx, wy)
+        """Return a forward lookahead waypoint without backtracking oscillation."""
+        if not self._path:
+            return None
+
+        self._path_idx = max(0, min(self._path_idx, len(self._path) - 1))
+
+        # Advance path index while the next waypoint is closer.
+        # This prevents switching between points behind/ahead of the robot.
+        while self._path_idx + 1 < len(self._path):
+            curr = self._path[self._path_idx]
+            nxt = self._path[self._path_idx + 1]
+            d_curr = math.hypot(curr[0] - self._robot_x, curr[1] - self._robot_y)
+            d_next = math.hypot(nxt[0] - self._robot_x, nxt[1] - self._robot_y)
+            if d_next <= d_curr:
+                self._path_idx += 1
+            else:
                 break
-        if best is None and self._path:
-            best = self._path[-1]
-        return best
+
+        for i in range(self._path_idx, len(self._path)):
+            wx, wy = self._path[i]
+            if math.hypot(wx - self._robot_x, wy - self._robot_y) >= lookahead:
+                self._path_idx = i
+                return (wx, wy)
+
+        self._path_idx = len(self._path) - 1
+        return self._path[-1]
 
     @staticmethod
     def _quat_to_yaw(qx: float, qy: float, qz: float, qw: float) -> float:
