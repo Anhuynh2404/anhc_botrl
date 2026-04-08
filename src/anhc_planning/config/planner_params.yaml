@@ -1,5 +1,6 @@
 anhc_global_planner:
   ros__parameters:
+    use_sim_time: true
     algorithm: "astar"
     astar:
       weight: 1.0
@@ -9,6 +10,7 @@ anhc_global_planner:
 
 anhc_path_follower:
   ros__parameters:
+    use_sim_time: true
     max_linear_speed: 0.5
     max_angular_speed: 1.0
     lookahead_distance: 0.5

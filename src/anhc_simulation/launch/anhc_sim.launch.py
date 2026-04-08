@@ -28,7 +28,10 @@ def generate_launch_description():
         [FindPackageShare("anhc_description"), "rviz", "anhc_bot.rviz"]
     )
 
-    robot_description = {"robot_description": Command(["xacro ", xacro_file])}
+    robot_description = {
+        "robot_description": Command(["xacro ", xacro_file]),
+        "use_sim_time": True,
+    }
 
     gz_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
@@ -83,6 +86,14 @@ def generate_launch_description():
             # Avoid FastDDS SHM init failures on some host setups.
             SetEnvironmentVariable("FASTDDS_BUILTIN_TRANSPORTS", "UDPv4"),
             gz_launch,
+            # Publish joint states for non-fixed joints (e.g. left/right wheels)
+            # so that robot_state_publisher can generate full TFs for all links.
+            Node(
+                package="joint_state_publisher",
+                executable="joint_state_publisher",
+                parameters=[robot_description],
+                output="screen",
+            ),
             Node(
                 package="robot_state_publisher",
                 executable="robot_state_publisher",
@@ -162,6 +173,7 @@ def generate_launch_description():
                 package="rviz2",
                 executable="rviz2",
                 arguments=["-d", rviz_config],
+                parameters=[{"use_sim_time": True}],
                 condition=IfCondition(use_rviz),
                 output="screen",
             ),
