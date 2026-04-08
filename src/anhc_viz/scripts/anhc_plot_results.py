@@ -53,6 +53,26 @@ def _latest_csv(results_dir: str) -> str:
     return files[-1]
 
 
+def _normalize_schema(df: pd.DataFrame) -> pd.DataFrame:
+    """Back-fill ``planning_success`` for v1 CSV files that pre-date the column.
+
+    Inference rule (matches the v2 writer behaviour):
+        planning_success = (success == True) OR (path_length_m > 0)
+    """
+    if "planning_success" not in df.columns:
+        df = df.copy()
+        inferred = df["success"].astype(bool) | (
+            pd.to_numeric(df["path_length_m"], errors="coerce").fillna(0.0) > 0
+        )
+        insert_pos = (
+            df.columns.get_loc("nodes_expanded") + 1
+            if "nodes_expanded" in df.columns
+            else len(df.columns)
+        )
+        df.insert(insert_pos, "planning_success", inferred)
+    return df
+
+
 def _algo_colors(algorithms: list[str]) -> dict[str, str]:
     return {a: _ALGO_COLORS[i % len(_ALGO_COLORS)] for i, a in enumerate(sorted(algorithms))}
 
@@ -152,7 +172,7 @@ def main() -> None:
         sys.exit(1)
 
     print(f"Reading: {csv_path}")
-    df = pd.read_csv(csv_path)
+    df = _normalize_schema(pd.read_csv(csv_path))
     if df.empty:
         print(f"ERROR: {csv_path} is empty.", file=sys.stderr)
         sys.exit(1)
