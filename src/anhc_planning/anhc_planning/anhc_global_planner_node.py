@@ -139,13 +139,12 @@ class AnhcGlobalPlannerNode(Node):
             self.get_logger().warn(
                 "[anhc_global_planner] planner returned empty path"
             )
-            stats = {
-                "algorithm": self._planner.get_name(),
-                "nodes_expanded": 0,
-                "planning_time_ms": 0.0,
-                "path_length_m": 0.0,
-                "status": "no_path",
-            }
+            stats = getattr(self._planner, "stats", {})
+            stats.setdefault("algorithm", self._planner.get_name())
+            stats.setdefault("nodes_expanded", 0)
+            stats.setdefault("planning_time_ms", 0.0)
+            stats.setdefault("path_length_m", 0.0)
+            stats["status"] = "no_path"
         else:
             stats = getattr(self._planner, "stats", {})
             stats.setdefault("algorithm", self._planner.get_name())
@@ -163,7 +162,14 @@ class AnhcGlobalPlannerNode(Node):
     # ------------------------------------------------------------------
 
     def _get_robot_pose(self) -> tuple[float, float] | None:
-        """Try TF map→base_footprint first; fall back to /initialpose."""
+        """Resolve start pose for planning.
+
+        Prefer manually provided /initialpose when available (RViz workflow),
+        then fall back to TF map→base_footprint / map→base_link.
+        """
+        if self._manual_start is not None:
+            return self._manual_start
+
         try:
             t = self._tf_buffer.lookup_transform(
                 "map", "base_footprint", rclpy.time.Time()
@@ -183,9 +189,6 @@ class AnhcGlobalPlannerNode(Node):
             return (x, y)
         except TransformException:
             pass
-
-        if self._manual_start is not None:
-            return self._manual_start
 
         return None
 

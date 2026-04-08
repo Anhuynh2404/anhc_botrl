@@ -21,16 +21,12 @@ anhc_camera_processor_node:
     use_sim_time: true
     canny_low: 50
     canny_high: 150
-    depth_obstacle_threshold: 1.5
+    # Practical stop distance for front depth obstacle check (meters).
+    depth_obstacle_threshold: 0.6
     blur_kernel: 5
     startup_grace_sec: 3.0
-    # Depth obstacle detection uses a centre ROI and counts pixels with depth
-    # < depth_obstacle_threshold. Set this to 1 to emulate the legacy trigger
-    # condition ("any close pixel triggers obstacle"), but note that legacy
-    # equivalence also depends on the parameters below.
-    depth_min_obstacle_pixels: 1
-    # To match legacy behaviour more closely:
-    # - exclude_ground_plane: false  (legacy checked the full ROI)
-    # - min_valid_depth_m: 0.05      (legacy filtered out depths <= 0.05 m)
+    # Require multiple close pixels to avoid constant false positives.
+    depth_min_obstacle_pixels: 50
     exclude_ground_plane: true
-    min_valid_depth_m: 0.0
+    # Ignore very small ranges that are often sensor noise.
+    min_valid_depth_m: 0.05
