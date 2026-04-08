@@ -86,6 +86,14 @@ def generate_launch_description():
             # Avoid FastDDS SHM init failures on some host setups.
             SetEnvironmentVariable("FASTDDS_BUILTIN_TRANSPORTS", "UDPv4"),
             gz_launch,
+            # Publish joint states for non-fixed joints (e.g. left/right wheels)
+            # so that robot_state_publisher can generate full TFs for all links.
+            Node(
+                package="joint_state_publisher",
+                executable="joint_state_publisher",
+                parameters=[robot_description],
+                output="screen",
+            ),
             Node(
                 package="robot_state_publisher",
                 executable="robot_state_publisher",
@@ -95,7 +103,7 @@ def generate_launch_description():
             Node(
                 package="ros_gz_bridge",
                 executable="parameter_bridge",
-                parameters=[{"config_file": bridge_config, "use_sim_time": True}],
+                parameters=[{"config_file": bridge_config}],
                 output="screen",
             ),
             spawn_entity,
