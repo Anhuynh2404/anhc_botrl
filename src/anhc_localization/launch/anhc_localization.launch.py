@@ -25,6 +25,7 @@ def generate_launch_description():
             name='anhc_imu_filter_node',
             output='screen',
             parameters=[{
+                'use_sim_time': True,
                 'alpha': 0.98,
                 'accel_lpf_alpha': 0.8,
             }],

@@ -116,6 +116,7 @@ def generate_launch_description() -> LaunchDescription:
         executable="rviz2",
         name="rviz2",
         arguments=["-d", rviz_config],
+        parameters=[{"use_sim_time": True}],
         condition=IfCondition(LaunchConfiguration("use_rviz")),
         output="screen",
     )
@@ -133,6 +134,7 @@ def generate_launch_description() -> LaunchDescription:
         package="anhc_viz",
         executable="anhc_dashboard_panel",
         name="anhc_dashboard_panel",
+        parameters=[{"use_sim_time": True}],
         output="screen",
     )
 

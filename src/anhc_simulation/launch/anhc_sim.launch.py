@@ -28,7 +28,10 @@ def generate_launch_description():
         [FindPackageShare("anhc_description"), "rviz", "anhc_bot.rviz"]
     )
 
-    robot_description = {"robot_description": Command(["xacro ", xacro_file])}
+    robot_description = {
+        "robot_description": Command(["xacro ", xacro_file]),
+        "use_sim_time": True,
+    }
 
     gz_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
@@ -92,7 +95,7 @@ def generate_launch_description():
             Node(
                 package="ros_gz_bridge",
                 executable="parameter_bridge",
-                parameters=[{"config_file": bridge_config}],
+                parameters=[{"config_file": bridge_config, "use_sim_time": True}],
                 output="screen",
             ),
             spawn_entity,
@@ -162,6 +165,7 @@ def generate_launch_description():
                 package="rviz2",
                 executable="rviz2",
                 arguments=["-d", rviz_config],
+                parameters=[{"use_sim_time": True}],
                 condition=IfCondition(use_rviz),
                 output="screen",
             ),
