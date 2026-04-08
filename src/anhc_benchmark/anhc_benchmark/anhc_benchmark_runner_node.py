@@ -35,6 +35,10 @@ _CSV_FIELDNAMES = [
     "path_length_m",
     "path_smoothness",
     "nodes_expanded",
+    # planning_success: True  ↔ planner returned a valid path (path_length_m > 0 is consistent)
+    # success:          True  ↔ robot reached the goal within execution_timeout_s
+    # These are independent: planning can succeed while execution times out (success=False).
+    "planning_success",
     "success",
     "collision",
     "execution_time_s",
@@ -259,6 +263,8 @@ class AnhcBenchmarkRunnerNode(Node):
             "path_length_m": 0.0,
             "path_smoothness": 0.0,
             "nodes_expanded": 0,
+            # Both default to False; set to True only when explicitly confirmed below.
+            "planning_success": False,
             "success": False,
             "collision": False,
             "execution_time_s": 0.0,
@@ -325,12 +331,16 @@ class AnhcBenchmarkRunnerNode(Node):
             costmap_snap = self._costmap
 
         row["planning_time_ms"] = float(stats.get("planning_time_ms", 0.0))
-        row["path_length_m"] = float(stats.get("path_length_m", 0.0))
         row["nodes_expanded"] = int(stats.get("nodes_expanded", 0))
 
         if stats.get("status") == "no_path":
+            # Planner explicitly reported no solution — path_length_m stays 0,
+            # planning_success stays False, success stays False.
             return row
 
+        # Planner returned a valid path: record path metrics and set planning_success.
+        row["path_length_m"] = float(stats.get("path_length_m", 0.0))
+        row["planning_success"] = True
         row["path_smoothness"] = self._compute_smoothness(path_snap)
         row["clearance_avg_m"] = self._compute_clearance(path_snap, costmap_snap)
 

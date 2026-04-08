@@ -150,7 +150,7 @@ class AnhcResultsAnalyzerNode(Node):
                     "n": len(col),
                 }
             # Boolean metrics
-            for bm in ("success", "collision"):
+            for bm in ("planning_success", "success", "collision"):
                 if bm in grp.columns:
                     stats[bm] = {
                         "rate": round(
@@ -206,8 +206,12 @@ class AnhcResultsAnalyzerNode(Node):
                         row_parts.append(f"{mean:.3f} ± {std:.3f}")
             lines.append("| " + " | ".join(row_parts) + " |")
 
-        # Success / collision rates
-        for bm, label in [("success", "Success Rate"), ("collision", "Collision Rate")]:
+        # Boolean metrics: planning_success, success, collision
+        for bm, label in [
+            ("planning_success", "Planning Success Rate"),
+            ("success", "Goal-Reached Rate"),
+            ("collision", "Collision Rate"),
+        ]:
             row_parts = [f"**{label}**"]
             for algo in algos:
                 s = summary.get(algo, {}).get(bm)
@@ -243,6 +247,19 @@ class AnhcResultsAnalyzerNode(Node):
                         row_parts.append(
                             f"{s['mean']:.3f} ± {s.get('std', 0.0):.3f}"
                         )
+                lines.append("| " + " | ".join(row_parts) + " |")
+            # Boolean rates per scenario
+            for bm, label in [
+                ("planning_success", "**Planning Success Rate**"),
+                ("success", "**Goal-Reached Rate**"),
+                ("collision", "**Collision Rate**"),
+            ]:
+                row_parts = [label]
+                for algo in sc_algos:
+                    s = sc_summary.get(algo, {}).get(bm)
+                    row_parts.append(
+                        f"{s.get('rate', 0.0):.2%}" if s else "N/A"
+                    )
                 lines.append("| " + " | ".join(row_parts) + " |")
             lines.append("\n")
 

@@ -9,8 +9,10 @@ from launch_ros.substitutions import FindPackageShare
 
 def generate_launch_description():
     use_rviz = LaunchConfiguration("use_rviz")
+    world_name = LaunchConfiguration("world")
     world_file = PathJoinSubstitution(
-        [FindPackageShare("anhc_simulation"), "worlds", "anhc_indoor.sdf"]
+        [FindPackageShare("anhc_simulation"), "worlds",
+         [world_name, ".sdf"]]
     )
     bridge_config = PathJoinSubstitution(
         [FindPackageShare("anhc_simulation"), "config", "bridge_params.yaml"]
@@ -62,6 +64,11 @@ def generate_launch_description():
                 "gz_extra_args",
                 default_value="-s",
                 description="Extra args for gz sim. Default -s runs server-only (headless).",
+            ),
+            DeclareLaunchArgument(
+                "world",
+                default_value="anhc_indoor",
+                description="Gazebo world name (without .sdf). Must exist under worlds/.",
             ),
             # Avoid FastDDS SHM init failures on some host setups.
             SetEnvironmentVariable("FASTDDS_BUILTIN_TRANSPORTS", "UDPv4"),

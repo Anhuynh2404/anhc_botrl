@@ -3,7 +3,7 @@
 <package format="3">
   <name>anhc_viz</name>
   <version>0.0.0</version>
-  <description>RViz2 configurations and custom dashboards for the anhc autonomous vehicle</description>
+  <description>RViz2 configurations and live dashboard for the anhc autonomous vehicle</description>
   <maintainer email="huynhcongan2442004@gmail.com">anhuynh</maintainer>
   <license>Apache-2.0</license>
 
@@ -17,6 +17,11 @@
   <depend>visualization_msgs</depend>
   <depend>tf2</depend>
   <depend>tf2_ros</depend>
+
+  <exec_depend>rviz2</exec_depend>
+  <exec_depend>python3-matplotlib</exec_depend>
+  <exec_depend>python3-pandas</exec_depend>
+  <exec_depend>python3-numpy</exec_depend>
 
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>
