@@ -91,7 +91,9 @@ def generate_launch_description() -> LaunchDescription:
         {
             "world": LaunchConfiguration("world"),
             "gz_extra_args": LaunchConfiguration("gz_extra_args"),
-            "use_rviz": "false",  # RViz handled below with the full config
+            # Pass "sim_use_rviz" (not "use_rviz") to avoid overriding the master's
+            # own "use_rviz" flag in the shared LaunchConfiguration namespace.
+            "sim_use_rviz": "false",
         },
     )
 

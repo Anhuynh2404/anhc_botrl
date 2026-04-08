@@ -8,7 +8,11 @@ from launch_ros.substitutions import FindPackageShare
 
 
 def generate_launch_description():
-    use_rviz = LaunchConfiguration("use_rviz")
+    # Use "sim_use_rviz" rather than "use_rviz" to avoid clobbering the
+    # parent launch's "use_rviz" flag when included via IncludeLaunchDescription.
+    # ROS2 launch shares LaunchConfiguration values globally across all included
+    # files, so reusing the same name would override the parent's value.
+    use_rviz = LaunchConfiguration("sim_use_rviz")
     world_name = LaunchConfiguration("world")
     world_file = PathJoinSubstitution(
         [FindPackageShare("anhc_simulation"), "worlds",
@@ -59,7 +63,13 @@ def generate_launch_description():
 
     return LaunchDescription(
         [
-            DeclareLaunchArgument("use_rviz", default_value="true"),
+            DeclareLaunchArgument(
+                "sim_use_rviz",
+                default_value="true",
+                description="Launch RViz2 with the basic sim config. "
+                            "Set false when using anhc_master.launch.py "
+                            "(which provides its own full RViz2 config).",
+            ),
             DeclareLaunchArgument(
                 "gz_extra_args",
                 default_value="-s",
@@ -86,6 +96,68 @@ def generate_launch_description():
                 output="screen",
             ),
             spawn_entity,
+
+            # ── Gazebo ↔ ROS frame-ID bridge (static transforms) ──────────────────
+            # Gazebo Harmonic flattens all fixed URDF joints into the root link
+            # (base_footprint) when building its internal model.  As a result,
+            # every sensor that was declared on a child fixed-link (lidar_link,
+            # camera_link, imu_link) gets a Gazebo scoped frame_id of the form:
+            #   {model_name}/{root_link}/{sensor_name}
+            # e.g. "anhc_bot/base_footprint/anhc_lidar"
+            #
+            # These Gazebo-style frame IDs do NOT appear in the ROS TF tree (which
+            # is published by robot_state_publisher using the original URDF link
+            # names).  The mismatch causes:
+            #   1. SLAM toolbox to fail silently (cannot look up scan frame → no map)
+            #   2. RViz "Could not transform … to [map]" errors for sensor displays
+            #
+            # Fix: publish identity static transforms connecting each Gazebo sensor
+            # frame to its corresponding URDF link.
+            Node(
+                package="tf2_ros",
+                executable="static_transform_publisher",
+                name="gz_lidar_frame_bridge",
+                arguments=[
+                    "0", "0", "0", "0", "0", "0",
+                    "lidar_link",                         # URDF frame (in TF tree)
+                    "anhc_bot/base_footprint/anhc_lidar", # Gazebo sensor frame
+                ],
+                output="screen",
+            ),
+            Node(
+                package="tf2_ros",
+                executable="static_transform_publisher",
+                name="gz_camera_rgb_frame_bridge",
+                arguments=[
+                    "0", "0", "0", "0", "0", "0",
+                    "camera_link",
+                    "anhc_bot/base_footprint/anhc_rgb_camera",
+                ],
+                output="screen",
+            ),
+            Node(
+                package="tf2_ros",
+                executable="static_transform_publisher",
+                name="gz_camera_depth_frame_bridge",
+                arguments=[
+                    "0", "0", "0", "0", "0", "0",
+                    "camera_link",
+                    "anhc_bot/base_footprint/anhc_depth_camera",
+                ],
+                output="screen",
+            ),
+            Node(
+                package="tf2_ros",
+                executable="static_transform_publisher",
+                name="gz_imu_frame_bridge",
+                arguments=[
+                    "0", "0", "0", "0", "0", "0",
+                    "imu_link",
+                    "anhc_bot/base_footprint/anhc_imu",
+                ],
+                output="screen",
+            ),
+
             Node(
                 package="rviz2",
                 executable="rviz2",
