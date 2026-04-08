@@ -1,0 +1,23 @@
+# Benchmark scenario definitions for anhc_benchmark
+# Each scenario specifies start/goal poses, which algorithms to compare, and trial count.
+
+scenario_1:
+  name: "short_path_clear"
+  start: [0.0, 0.0]
+  goal: [4.0, 0.0]
+  algorithms: [astar, dijkstra]
+  trials: 5
+
+scenario_2:
+  name: "long_path_with_obstacles"
+  start: [0.0, 0.0]
+  goal: [8.0, 6.0]
+  algorithms: [astar, dijkstra]
+  trials: 5
+
+scenario_3:
+  name: "narrow_corridor"
+  start: [1.0, 1.0]
+  goal: [9.0, -5.0]
+  algorithms: [astar, dijkstra]
+  trials: 3

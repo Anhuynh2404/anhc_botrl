@@ -1,0 +1,5 @@
+algorithm_name,map_name,start_x,start_y,goal_x,goal_y,planning_time_ms,path_length_m,path_smoothness,nodes_expanded,success,collision,execution_time_s,clearance_avg_m,cpu_usage_percent,memory_mb
+astar,short_path_clear,0.0,0.0,4.0,0.0,24.97,4.424,0.0,269,True,False,4.969430446624756,-1.0,0.0,79.40234375
+astar,short_path_clear,0.0,0.0,4.0,0.0,12.52,0.0,0.0,875,True,False,4.291534423828125e-06,-1.0,0.0,82.15234375
+dijkstra,short_path_clear,0.0,0.0,4.0,0.0,8.33,0.0,0.0,491,True,False,2.86102294921875e-06,-1.0,0.0,83.23046875
+dijkstra,short_path_clear,0.0,0.0,4.0,0.0,21.26,0.0,0.0,346,True,False,5.9604644775390625e-06,-1.0,0.0,83.69140625
