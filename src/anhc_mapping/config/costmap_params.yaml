@@ -1,5 +1,6 @@
 anhc_costmap_node:
   ros__parameters:
+    use_sim_time: true
     # robot_radius (0.30m) + safety_margin (0.15m) = 0.45m
     inflation_radius: 0.45
     cost_scaling_factor: 3.0
@@ -8,6 +9,7 @@ anhc_costmap_node:
 
 anhc_global_costmap_node:
   ros__parameters:
+    use_sim_time: true
     inflation_radius: 0.45
     cost_scaling_factor: 3.0
     robot_radius: 0.30

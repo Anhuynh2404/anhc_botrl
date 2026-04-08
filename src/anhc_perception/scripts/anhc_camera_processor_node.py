@@ -28,6 +28,8 @@ class AhncCameraProcessorNode(Node):
         self.declare_parameter('canny_high', 150)
         self.declare_parameter('depth_obstacle_threshold', 1.5)
         self.declare_parameter('blur_kernel', 5)
+        self.declare_parameter('startup_grace_sec', 3.0)
+        self.declare_parameter('depth_min_obstacle_pixels', 10)
 
         self._lo = int(self.get_parameter('canny_low').value)
         self._hi = int(self.get_parameter('canny_high').value)
@@ -35,6 +37,9 @@ class AhncCameraProcessorNode(Node):
             self.get_parameter('depth_obstacle_threshold').value)
         k = int(self.get_parameter('blur_kernel').value)
         self._blur_k = k if k % 2 == 1 else k + 1
+        self._grace_sec = float(self.get_parameter('startup_grace_sec').value)
+        self._min_pixels = int(self.get_parameter('depth_min_obstacle_pixels').value)
+        self._start_time = self.get_clock().now()
 
         if _CV_OK:
             self._bridge = CvBridge()
@@ -74,6 +79,10 @@ class AhncCameraProcessorNode(Node):
     def _depth_cb(self, msg: Image) -> None:
         if not _CV_OK:
             return
+        elapsed = (self.get_clock().now() - self._start_time).nanoseconds * 1e-9
+        if elapsed < self._grace_sec:
+            self._pub_obs.publish(Bool(data=False))
+            return
         try:
             depth = self._bridge.imgmsg_to_cv2(
                 msg, desired_encoding='passthrough').astype(np.float32)
@@ -81,8 +90,11 @@ class AhncCameraProcessorNode(Node):
             cy0, cy1 = h // 4, 3 * h // 4
             cx0, cx1 = w // 4, 3 * w // 4
             roi = depth[cy0:cy1, cx0:cx1]
-            valid = roi[np.isfinite(roi) & (roi > 0.05)]
-            obstacle = bool(len(valid) > 0 and float(valid.min()) < self._depth_thr)
+            # Exclude ground plane (bottom quarter of ROI) and invalid readings
+            roi_no_ground = roi[:roi.shape[0] * 3 // 4, :]
+            valid = roi_no_ground[np.isfinite(roi_no_ground) & (roi_no_ground > 0.05)]
+            close_pixels = int(np.sum(valid < self._depth_thr))
+            obstacle = close_pixels >= self._min_pixels
             self._pub_obs.publish(Bool(data=obstacle))
         except Exception as exc:
             self.get_logger().debug(f'Depth processing error: {exc}')
