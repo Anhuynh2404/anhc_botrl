@@ -81,11 +81,11 @@ class AnhcResultsAnalyzerNode(Node):
 
     def _try_analyze(self) -> bool:
         """Find the newest CSV, analyse it, update payload, write report."""
-        csv_path = self._latest_csv()  # instance method now
+        csv_path = self._latest_csv()
         if not csv_path:
             self.get_logger().debug(
                 "[anhc_results_analyzer] no CSV found in "
-                f"{_OUTPUT_DIR} — waiting"
+                f"{self._output_dir} — waiting"
             )
             return False
 
@@ -94,6 +94,7 @@ class AnhcResultsAnalyzerNode(Node):
 
         try:
             df = pd.read_csv(csv_path)
+            df = self._normalize_schema(df)
         except Exception as exc:
             self.get_logger().error(
                 f"[anhc_results_analyzer] cannot read {csv_path}: {exc}"
@@ -133,6 +134,33 @@ class AnhcResultsAnalyzerNode(Node):
         pattern = os.path.join(self._output_dir, "benchmark_*.csv")
         files = sorted(glob.glob(pattern))
         return files[-1] if files else ""
+
+    @staticmethod
+    def _normalize_schema(df: pd.DataFrame) -> pd.DataFrame:
+        """Ensure every required column exists, back-filling from existing data.
+
+        ``planning_success`` was added in the v2 schema.  For v1 CSVs that lack
+        it the value is inferred conservatively:
+            - ``success == True``  → robot reached goal  → planner must have
+              produced a valid path  → planning_success = True
+            - ``path_length_m > 0`` → planner returned a path even if the robot
+              did not reach the goal (execution timeout, collision …)
+              → planning_success = True
+            - otherwise → planning_success = False  (no_path or timeout)
+        """
+        if "planning_success" not in df.columns:
+            df = df.copy()
+            inferred = df["success"].astype(bool) | (
+                pd.to_numeric(df["path_length_m"], errors="coerce").fillna(0.0) > 0
+            )
+            # Insert at position matching the v2 schema (after nodes_expanded)
+            insert_pos = (
+                df.columns.get_loc("nodes_expanded") + 1
+                if "nodes_expanded" in df.columns
+                else len(df.columns)
+            )
+            df.insert(insert_pos, "planning_success", inferred)
+        return df
 
     @staticmethod
     def _compute_summary(df: pd.DataFrame) -> dict:
