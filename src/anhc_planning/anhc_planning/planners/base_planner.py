@@ -1,6 +1,7 @@
 """Abstract base class for all path planners in the anhc_planning framework."""
 
 import math
+from collections import deque
 from abc import ABC, abstractmethod
 from typing import Dict, List, Optional, Tuple
 
@@ -107,6 +108,7 @@ class BasePlanner(ABC):
         width: int,
         data: List[int],
         obstacle_threshold: int = 65,
+        allow_unknown: bool = True,
     ) -> bool:
         """Return True if the cell is within bounds and below the obstacle threshold.
 
@@ -125,7 +127,7 @@ class BasePlanner(ABC):
             return False
         cost = data[row * width + col]
         if cost < 0:
-            return False
+            return allow_unknown
         return cost < obstacle_threshold
 
     @staticmethod
@@ -193,3 +195,48 @@ class BasePlanner(ABC):
             dy = path[i][1] - path[i - 1][1]
             total += math.sqrt(dx * dx + dy * dy)
         return total
+
+    @staticmethod
+    def nearest_valid_cell(
+        start: Tuple[int, int],
+        height: int,
+        width: int,
+        data: List[int],
+        obstacle_threshold: int = 65,
+        max_radius_cells: int = 50,
+    ) -> Optional[Tuple[int, int]]:
+        """Find nearest valid cell around start using bounded BFS.
+
+        Returns None if no valid cell is found within max_radius_cells.
+        """
+        sr, sc = start
+        if BasePlanner.is_valid_cell(
+            sr, sc, height, width, data, obstacle_threshold
+        ):
+            return start
+
+        q = deque([(sr, sc, 0)])
+        visited = {(sr, sc)}
+        neigh = [(-1, 0), (1, 0), (0, -1), (0, 1)]
+
+        while q:
+            r, c, d = q.popleft()
+            if d >= max_radius_cells:
+                continue
+
+            for dr, dc in neigh:
+                nr, nc = r + dr, c + dc
+                if (nr, nc) in visited:
+                    continue
+                visited.add((nr, nc))
+
+                if nr < 0 or nr >= height or nc < 0 or nc >= width:
+                    continue
+
+                if BasePlanner.is_valid_cell(
+                    nr, nc, height, width, data, obstacle_threshold
+                ):
+                    return (nr, nc)
+                q.append((nr, nc, d + 1))
+
+        return None
