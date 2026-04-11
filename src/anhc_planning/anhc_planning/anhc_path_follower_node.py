@@ -91,7 +91,14 @@ class AnhcPathFollowerNode(Node):
             self.get_logger().warn("[anhc_path_follower] obstacle detected — stopping")
 
     def _control_loop(self) -> None:
-        if self._obstacle_stop or not self._path_map or self._goal_reached:
+        if self._obstacle_stop or self._goal_reached:
+            self._safe_stop()
+            return
+
+        # Snapshot so /planning/path callbacks cannot shorten the list mid-tick
+        # (IndexError on lookahead_idx vs multi-threaded executor).
+        path_map = list(self._path_map)
+        if not path_map:
             self._safe_stop()
             return
 
@@ -101,7 +108,7 @@ class AnhcPathFollowerNode(Node):
             return
 
         robot_map_x, robot_map_y, robot_map_yaw = self._robot_pose_in_map(tf)
-        goal_x, goal_y = self._path_map[-1]
+        goal_x, goal_y = path_map[-1]
         goal_dist = math.hypot(goal_x - robot_map_x, goal_y - robot_map_y)
         if goal_dist < float(self.get_parameter("goal_tolerance_m").value):
             self.get_logger().info("[anhc_path_follower] Goal reached")
@@ -112,13 +119,13 @@ class AnhcPathFollowerNode(Node):
 
         path_robot = [
             self._map_to_robot(px, py, robot_map_x, robot_map_y, robot_map_yaw)
-            for px, py in self._path_map
+            for px, py in path_map
         ]
         closest_idx = self._closest_index(path_robot)
         lookahead = float(self.get_parameter("lookahead_distance").value)
         lookahead_idx = self._lookahead_index(path_robot, closest_idx, lookahead)
         lx, ly = path_robot[lookahead_idx]
-        lookahead_map = self._path_map[lookahead_idx]
+        lookahead_map = path_map[lookahead_idx]
 
         self._pub_lookahead.publish(
             PointStamped(
@@ -127,7 +134,7 @@ class AnhcPathFollowerNode(Node):
             )
         )
 
-        xte = self._cross_track_error(robot_map_x, robot_map_y)
+        xte = self._cross_track_error(robot_map_x, robot_map_y, path_map)
         self._pub_xte.publish(Float32(data=float(xte)))
         if xte > float(self.get_parameter("path_lost_threshold").value):
             self.get_logger().warn(
@@ -228,13 +235,17 @@ class AnhcPathFollowerNode(Node):
                 return i
         return len(path_robot) - 1
 
-    def _cross_track_error(self, rx: float, ry: float) -> float:
-        if len(self._path_map) < 2:
-            return math.hypot(self._path_map[0][0] - rx, self._path_map[0][1] - ry)
+    def _cross_track_error(
+        self, rx: float, ry: float, path_map: list[tuple[float, float]]
+    ) -> float:
+        if not path_map:
+            return 0.0
+        if len(path_map) < 2:
+            return math.hypot(path_map[0][0] - rx, path_map[0][1] - ry)
         best = float("inf")
-        for i in range(len(self._path_map) - 1):
-            ax, ay = self._path_map[i]
-            bx, by = self._path_map[i + 1]
+        for i in range(len(path_map) - 1):
+            ax, ay = path_map[i]
+            bx, by = path_map[i + 1]
             vx, vy = bx - ax, by - ay
             wx, wy = rx - ax, ry - ay
             v2 = vx * vx + vy * vy

@@ -11,6 +11,7 @@ Publishes:
 """
 
 import math
+from copy import deepcopy
 from typing import Optional
 
 import numpy as np
@@ -163,7 +164,8 @@ class AhncCostmapNode(Node):
 
         out = OccupancyGrid()
         out.header = map_msg.header
-        out.info = info
+        # Copy so _extract_local_window cannot mutate /map metadata via shared refs.
+        out.info = deepcopy(map_msg.info)
         # nav_msgs/OccupancyGrid stores int8; reinterpret uint8 cost bytes.
         out.data = costs.view(np.int8).flatten().tolist()
         return out
@@ -235,7 +237,7 @@ class AhncCostmapNode(Node):
         sub = data[y0:y1, x0:x1]
         out = OccupancyGrid()
         out.header = global_map.header
-        out.info = global_map.info
+        out.info = deepcopy(global_map.info)
         out.info.width = int(x1 - x0)
         out.info.height = int(y1 - y0)
         out.info.origin.position.x = ox + x0 * res

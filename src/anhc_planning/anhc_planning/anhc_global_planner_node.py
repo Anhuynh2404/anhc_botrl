@@ -251,13 +251,20 @@ class AnhcGlobalPlannerNode(Node):
                 f"[anhc_global_planner] unknown algorithm '{name}', falling back to astar"
             )
             cls = AStarPlanner
+        ot = int(obstacle_threshold)
         if cls in (AStarPlanner, DijkstraPlanner):
             return cls(
-                obstacle_threshold=int(obstacle_threshold),
+                obstacle_threshold=ot,
                 path_smooth_data_weight=float(smooth_data),
                 path_smooth_smooth_weight=float(smooth_weight),
                 path_smooth_min_waypoints=int(smooth_min_wp),
             )
+        if cls is DStarLitePlanner:
+            return cls(obstacle_threshold=ot)
+        if cls is RRTStarPlanner:
+            return cls(obstacle_threshold=ot)
+        if cls is RLPlanner:
+            return cls(obstacle_threshold=ot)
         return cls()
 
     def _build_path_msg(
