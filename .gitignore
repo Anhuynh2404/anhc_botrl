@@ -45,3 +45,4 @@ cmake_install.cmake
 # TF debug artifacts (tf2_tools view_frames)
 frames_*.pdf
 frames_*.gv
+*.stl

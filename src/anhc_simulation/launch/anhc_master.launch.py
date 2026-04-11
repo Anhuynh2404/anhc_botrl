@@ -28,7 +28,7 @@ from launch.actions import (
 )
 from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
-from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
+from launch.substitutions import EnvironmentVariable, LaunchConfiguration, PathJoinSubstitution
 from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
 
@@ -51,6 +51,11 @@ def generate_launch_description() -> LaunchDescription:
         default_value="false",
         description="Include the benchmark framework (runner + live_metrics + analyzer).",
     )
+    run_planning_arg = DeclareLaunchArgument(
+        "run_planning",
+        default_value="true",
+        description="Include planning stack (global planner + path follower). Set false for manual teleop.",
+    )
     world_arg = DeclareLaunchArgument(
         "world",
         default_value="anhc_indoor",
@@ -69,6 +74,20 @@ def generate_launch_description() -> LaunchDescription:
             "anhc_benchmark_scenarios.yaml",
         ]),
         description="Benchmark scenario YAML (used only when run_benchmark:=true).",
+    )
+    map_file_arg = DeclareLaunchArgument(
+        "map_file",
+        default_value=PathJoinSubstitution([
+            EnvironmentVariable("HOME"),
+            "maps",
+            "anhc_indoor_map.yaml",
+        ]),
+        description="Absolute path to saved map YAML for localization map_server.",
+    )
+    use_slam_arg = DeclareLaunchArgument(
+        "use_slam",
+        default_value="true",
+        description="SLAM mapping (true) or static map_server + localization yaml (false).",
     )
 
     # ── helper ─────────────────────────────────────────────────────────────────
@@ -98,13 +117,21 @@ def generate_launch_description() -> LaunchDescription:
     )
 
     # ── 2. perception (localization + sensors + mapping) ───────────────────────
-    perception_launch = _inc("anhc_perception", "anhc_perception_full.launch.py")
+    perception_launch = _inc(
+        "anhc_perception",
+        "anhc_perception_full.launch.py",
+        {
+            "map_file": LaunchConfiguration("map_file"),
+            "use_slam": LaunchConfiguration("use_slam"),
+        },
+    )
 
     # ── 3. planning ────────────────────────────────────────────────────────────
     planning_launch = _inc(
         "anhc_planning",
         "anhc_planning.launch.py",
         {"algorithm": LaunchConfiguration("algorithm")},
+        condition=IfCondition(LaunchConfiguration("run_planning")),
     )
 
     # ── 4. RViz2 (conditional) ─────────────────────────────────────────────────
@@ -142,9 +169,12 @@ def generate_launch_description() -> LaunchDescription:
         algorithm_arg,
         use_rviz_arg,
         run_benchmark_arg,
+        run_planning_arg,
         world_arg,
         gz_extra_args_arg,
         scenario_file_arg,
+        map_file_arg,
+        use_slam_arg,
         sim_launch,
         perception_launch,
         planning_launch,

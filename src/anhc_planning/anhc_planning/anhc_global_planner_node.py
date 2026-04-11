@@ -11,7 +11,7 @@ from geometry_msgs.msg import PoseStamped, PoseWithCovarianceStamped
 from nav_msgs.msg import OccupancyGrid, Path
 from rcl_interfaces.msg import ParameterDescriptor, ParameterType
 from rclpy.node import Node
-from std_msgs.msg import String
+from std_msgs.msg import Bool, String
 import tf2_ros
 from tf2_ros import TransformException
 
@@ -64,9 +64,21 @@ class AnhcGlobalPlannerNode(Node):
                 description="Planning algorithm. Options: astar, dijkstra, rrt_star, dstar_lite, rl",
             ),
         )
+        self.declare_parameter(
+            "obstacle_cost_threshold",
+            253,
+            ParameterDescriptor(
+                type=ParameterType.PARAMETER_INTEGER,
+                description="Cells with cost >= threshold are treated as lethal.",
+            ),
+        )
+        self.declare_parameter("path_smooth_data_weight", 0.5)
+        self.declare_parameter("path_smooth_smooth_weight", 0.3)
+        self.declare_parameter("path_smooth_min_waypoints", 5)
 
         self._costmap: OccupancyGrid | None = None
         self._manual_start: tuple[float, float] | None = None
+        self._last_goal_msg: PoseStamped | None = None
 
         self._tf_buffer = tf2_ros.Buffer()
         self._tf_listener = tf2_ros.TransformListener(self._tf_buffer, self)
@@ -79,6 +91,9 @@ class AnhcGlobalPlannerNode(Node):
         )
         self._sub_initial = self.create_subscription(
             PoseWithCovarianceStamped, "/initialpose", self._cb_initial_pose, 10
+        )
+        self._sub_replan = self.create_subscription(
+            Bool, "/planning/replan_request", self._cb_replan_request, 10
         )
 
         self._pub_path = self.create_publisher(Path, "/planning/path", 10)
@@ -104,6 +119,21 @@ class AnhcGlobalPlannerNode(Node):
         )
 
     def _cb_goal(self, msg: PoseStamped) -> None:
+        self._last_goal_msg = msg
+        self._plan_to_goal(msg)
+
+    def _cb_replan_request(self, msg: Bool) -> None:
+        if not msg.data:
+            return
+        if self._last_goal_msg is None:
+            self.get_logger().warn(
+                "[anhc_global_planner] replan requested but no previous goal available"
+            )
+            return
+        self.get_logger().info("[anhc_global_planner] replan requested")
+        self._plan_to_goal(self._last_goal_msg)
+
+    def _plan_to_goal(self, msg: PoseStamped) -> None:
         if self._costmap is None:
             self.get_logger().warn(
                 "[anhc_global_planner] goal received but no costmap yet — ignoring"
@@ -195,12 +225,46 @@ class AnhcGlobalPlannerNode(Node):
     def _build_planner(self, name: str | None = None) -> BasePlanner:
         if name is None:
             name = self.get_parameter("algorithm").get_parameter_value().string_value
+        obstacle_threshold = (
+            self.get_parameter("obstacle_cost_threshold")
+            .get_parameter_value()
+            .integer_value
+        )
+        smooth_data = (
+            self.get_parameter("path_smooth_data_weight")
+            .get_parameter_value()
+            .double_value
+        )
+        smooth_weight = (
+            self.get_parameter("path_smooth_smooth_weight")
+            .get_parameter_value()
+            .double_value
+        )
+        smooth_min_wp = (
+            self.get_parameter("path_smooth_min_waypoints")
+            .get_parameter_value()
+            .integer_value
+        )
         cls = _PLANNER_REGISTRY.get(name)
         if cls is None:
             self.get_logger().warn(
                 f"[anhc_global_planner] unknown algorithm '{name}', falling back to astar"
             )
             cls = AStarPlanner
+        ot = int(obstacle_threshold)
+        if cls in (AStarPlanner, DijkstraPlanner):
+            return cls(
+                obstacle_threshold=ot,
+                path_smooth_data_weight=float(smooth_data),
+                path_smooth_smooth_weight=float(smooth_weight),
+                path_smooth_min_waypoints=int(smooth_min_wp),
+            )
+        if cls is DStarLitePlanner:
+            return cls(obstacle_threshold=ot)
+        if cls is RRTStarPlanner:
+            return cls(obstacle_threshold=ot)
+        if cls is RLPlanner:
+            return cls(obstacle_threshold=ot)
         return cls()
 
     def _build_path_msg(

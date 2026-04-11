@@ -36,11 +36,13 @@ class RLPlanner(BasePlanner):
         observation_radius_m: float = 5.0,
         action_horizon: int = 10,
         device: str = "cpu",
+        obstacle_threshold: int = 65,
     ) -> None:
         self._model_path = model_path
         self._observation_radius_m = observation_radius_m
         self._action_horizon = action_horizon
         self._device = device
+        self._obstacle_threshold = obstacle_threshold
 
     def get_name(self) -> str:
         return "rl"
@@ -51,6 +53,7 @@ class RLPlanner(BasePlanner):
             "observation_radius_m": self._observation_radius_m,
             "action_horizon": self._action_horizon,
             "device": self._device,
+            "obstacle_threshold": self._obstacle_threshold,
         }
 
     def plan(

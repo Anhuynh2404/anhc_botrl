@@ -2,6 +2,10 @@ anhc_global_planner:
   ros__parameters:
     use_sim_time: true
     algorithm: "astar"
+    obstacle_cost_threshold: 253
+    path_smooth_data_weight: 0.5
+    path_smooth_smooth_weight: 0.3
+    path_smooth_min_waypoints: 5
     astar:
       weight: 1.0
       allow_diagonal: true

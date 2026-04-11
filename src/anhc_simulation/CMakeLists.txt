@@ -19,5 +19,11 @@ install(DIRECTORY worlds/ DESTINATION share/${PROJECT_NAME}/worlds)
 install(DIRECTORY models/ DESTINATION share/${PROJECT_NAME}/models)
 install(DIRECTORY launch/ DESTINATION share/${PROJECT_NAME}/launch)
 install(DIRECTORY config/ DESTINATION share/${PROJECT_NAME}/config)
+install(
+  PROGRAMS
+  scripts/anhc_scan_frame_relay.py
+  scripts/anhc_odom_tf_broadcaster.py
+  DESTINATION lib/${PROJECT_NAME}
+)
 
 ament_package()

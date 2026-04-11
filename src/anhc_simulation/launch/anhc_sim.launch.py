@@ -4,6 +4,7 @@ from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import Command, LaunchConfiguration, PathJoinSubstitution
 from launch_ros.actions import Node
+from launch_ros.parameter_descriptions import ParameterValue
 from launch_ros.substitutions import FindPackageShare
 
 
@@ -28,8 +29,14 @@ def generate_launch_description():
         [FindPackageShare("anhc_description"), "rviz", "anhc_bot.rviz"]
     )
 
+    # joint_state_publisher (Jazzy) needs robot_description as a real string param;
+    # a bare Command() is not always coerced and the node then waits forever on the
+    # /robot_description topic → no /joint_states → incomplete TF → SLAM/RViz queues overflow.
     robot_description = {
-        "robot_description": Command(["xacro ", xacro_file]),
+        "robot_description": ParameterValue(
+            Command(["xacro ", xacro_file]),
+            value_type=str,
+        ),
         "use_sim_time": True,
     }
 
@@ -86,6 +93,12 @@ def generate_launch_description():
             # Avoid FastDDS SHM init failures on some host setups.
             SetEnvironmentVariable("FASTDDS_BUILTIN_TRANSPORTS", "UDPv4"),
             gz_launch,
+            Node(
+                package="robot_state_publisher",
+                executable="robot_state_publisher",
+                parameters=[robot_description],
+                output="screen",
+            ),
             # Publish joint states for non-fixed joints (e.g. left/right wheels)
             # so that robot_state_publisher can generate full TFs for all links.
             Node(
@@ -95,54 +108,81 @@ def generate_launch_description():
                 output="screen",
             ),
             Node(
-                package="robot_state_publisher",
-                executable="robot_state_publisher",
-                parameters=[robot_description],
-                output="screen",
-            ),
-            Node(
                 package="ros_gz_bridge",
                 executable="parameter_bridge",
-                parameters=[{"config_file": bridge_config}],
-                output="screen",
-            ),
-            spawn_entity,
-
-            # ── Gazebo ↔ ROS frame-ID bridge (static transforms) ──────────────────
-            # Gazebo Harmonic flattens all fixed URDF joints into the root link
-            # (base_footprint) when building its internal model.  As a result,
-            # every sensor that was declared on a child fixed-link (lidar_link,
-            # camera_link, imu_link) gets a Gazebo scoped frame_id of the form:
-            #   {model_name}/{root_link}/{sensor_name}
-            # e.g. "anhc_bot/base_footprint/anhc_lidar"
-            #
-            # These Gazebo-style frame IDs do NOT appear in the ROS TF tree (which
-            # is published by robot_state_publisher using the original URDF link
-            # names).  The mismatch causes:
-            #   1. SLAM toolbox to fail silently (cannot look up scan frame → no map)
-            #   2. RViz "Could not transform … to [map]" errors for sensor displays
-            #
-            # Fix: publish identity static transforms connecting each Gazebo sensor
-            # frame to its corresponding URDF link.
-            Node(
-                package="tf2_ros",
-                executable="static_transform_publisher",
-                name="gz_lidar_frame_bridge",
-                arguments=[
-                    "0", "0", "0", "0", "0", "0",
-                    "lidar_link",                         # URDF frame (in TF tree)
-                    "anhc_bot/base_footprint/anhc_lidar", # Gazebo sensor frame
+                parameters=[
+                    {"config_file": bridge_config, "use_sim_time": True},
                 ],
                 output="screen",
             ),
             Node(
+                package="anhc_simulation",
+                executable="anhc_scan_frame_relay.py",
+                name="anhc_scan_frame_relay",
+                parameters=[{"use_sim_time": True}],
+                output="screen",
+            ),
+            # Gazebo diff-drive publishes odom TF on gz /tf only; bridge omits /tf.
+            Node(
+                package="anhc_simulation",
+                executable="anhc_odom_tf_broadcaster.py",
+                name="anhc_odom_tf_broadcaster",
+                parameters=[{"use_sim_time": True}],
+                output="screen",
+            ),
+            spawn_entity,
+
+            # ── Gazebo ↔ ROS frame-ID bridge (static transforms) ────────────────────
+            # LaserScan /scan is republished as lidar_link (see anhc_scan_frame_relay).
+            # Keep lidar identity for point_cloud and any topic still using Gazebo frame.
+            Node(
+                package="tf2_ros",
+                executable="static_transform_publisher",
+                name="lidar_frame_bridge",
+                parameters=[{"use_sim_time": True}],
+                arguments=[
+                    "--frame-id",
+                    "lidar_link",
+                    "--child-frame-id",
+                    "anhc_bot/base_footprint/anhc_lidar",
+                    "--x",
+                    "0",
+                    "--y",
+                    "0",
+                    "--z",
+                    "0",
+                    "--roll",
+                    "0",
+                    "--pitch",
+                    "0",
+                    "--yaw",
+                    "0",
+                ],
+                output="screen",
+            ),
+            # Camera / IMU may still use Gazebo scoped names → identity bridges below.
+            Node(
                 package="tf2_ros",
                 executable="static_transform_publisher",
                 name="gz_camera_rgb_frame_bridge",
+                parameters=[{"use_sim_time": True}],
                 arguments=[
-                    "0", "0", "0", "0", "0", "0",
+                    "--frame-id",
                     "camera_link",
+                    "--child-frame-id",
                     "anhc_bot/base_footprint/anhc_rgb_camera",
+                    "--x",
+                    "0",
+                    "--y",
+                    "0",
+                    "--z",
+                    "0",
+                    "--roll",
+                    "0",
+                    "--pitch",
+                    "0",
+                    "--yaw",
+                    "0",
                 ],
                 output="screen",
             ),
@@ -150,10 +190,24 @@ def generate_launch_description():
                 package="tf2_ros",
                 executable="static_transform_publisher",
                 name="gz_camera_depth_frame_bridge",
+                parameters=[{"use_sim_time": True}],
                 arguments=[
-                    "0", "0", "0", "0", "0", "0",
+                    "--frame-id",
                     "camera_link",
+                    "--child-frame-id",
                     "anhc_bot/base_footprint/anhc_depth_camera",
+                    "--x",
+                    "0",
+                    "--y",
+                    "0",
+                    "--z",
+                    "0",
+                    "--roll",
+                    "0",
+                    "--pitch",
+                    "0",
+                    "--yaw",
+                    "0",
                 ],
                 output="screen",
             ),
@@ -161,10 +215,24 @@ def generate_launch_description():
                 package="tf2_ros",
                 executable="static_transform_publisher",
                 name="gz_imu_frame_bridge",
+                parameters=[{"use_sim_time": True}],
                 arguments=[
-                    "0", "0", "0", "0", "0", "0",
+                    "--frame-id",
                     "imu_link",
+                    "--child-frame-id",
                     "anhc_bot/base_footprint/anhc_imu",
+                    "--x",
+                    "0",
+                    "--y",
+                    "0",
+                    "--z",
+                    "0",
+                    "--roll",
+                    "0",
+                    "--pitch",
+                    "0",
+                    "--yaw",
+                    "0",
                 ],
                 output="screen",
             ),
