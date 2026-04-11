@@ -4,7 +4,8 @@
   gz_type_name: "gz.msgs.Clock"
   direction: GZ_TO_ROS
 
-- ros_topic_name: "/scan"
+# Raw scan (Gazebo frame_id). anhc_scan_frame_relay republishes as /scan → lidar_link.
+- ros_topic_name: "/scan_gz"
   # Gazebo gpu_lidar plugin publishes LaserScan on "/lidar" (not "/lidar/scan").
   gz_topic_name: "/lidar"
   ros_type_name: "sensor_msgs/msg/LaserScan"
@@ -53,8 +54,7 @@
   gz_type_name: "gz.msgs.Twist"
   direction: ROS_TO_GZ
 
-- ros_topic_name: "/tf"
-  gz_topic_name: "/tf"
-  ros_type_name: "tf2_msgs/msg/TFMessage"
-  gz_type_name: "gz.msgs.Pose_V"
-  direction: BIDIRECTIONAL
+# Do NOT bridge /tf bidirectionally: Gazebo's Pose_V tree conflicts with
+# robot_state_publisher + gz-sim-diff-drive-system (odom→base_footprint).
+# That duplicate TF causes LaserScan misalignment in RViz, broken SLAM maps,
+# and apparent desync between RViz and simulation.

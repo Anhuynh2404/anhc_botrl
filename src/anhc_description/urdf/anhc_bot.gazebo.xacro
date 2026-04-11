@@ -20,7 +20,7 @@
   <gazebo reference="lidar_link">
     <sensor name="anhc_lidar" type="gpu_lidar">
       <always_on>true</always_on>
-      <update_rate>10.0</update_rate>
+      <update_rate>15.0</update_rate>
       <topic>/lidar</topic>
       <lidar>
         <scan>
@@ -31,10 +31,10 @@
             <max_angle>3.14159</max_angle>
           </horizontal>
           <vertical>
-            <samples>16</samples>
+            <samples>1</samples>
             <resolution>1</resolution>
-            <min_angle>-0.2618</min_angle>
-            <max_angle>0.2618</max_angle>
+            <min_angle>0.0</min_angle>
+            <max_angle>0.0</max_angle>
           </vertical>
         </scan>
         <range>
@@ -99,6 +99,12 @@
       <right_joint>right_wheel_joint</right_joint>
       <wheel_separation>0.42</wheel_separation>
       <wheel_radius>0.08</wheel_radius>
+      <max_linear_velocity>0.35</max_linear_velocity>
+      <max_angular_velocity>0.9</max_angular_velocity>
+      <max_linear_acceleration>0.8</max_linear_acceleration>
+      <max_angular_acceleration>1.8</max_angular_acceleration>
+      <min_linear_velocity>-0.2</min_linear_velocity>
+      <cmd_vel_timeout>0.35</cmd_vel_timeout>
       <topic>/cmd_vel</topic>
       <odom_topic>/odom</odom_topic>
       <tf_topic>/tf</tf_topic>

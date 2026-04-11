@@ -159,32 +159,29 @@ class BasePlanner(ABC):
     @staticmethod
     def smooth_path(
         path: List[Tuple[float, float]],
-        window: int = 3,
+        data_weight: float = 0.5,
+        smooth_weight: float = 0.3,
+        tolerance: float = 1e-6,
+        min_waypoints: int = 5,
     ) -> List[Tuple[float, float]]:
-        """Apply a simple moving-average smoother to a (x, y) waypoint list.
-
-        Endpoints are preserved; interior points are averaged over *window*
-        neighbours.
-
-        Parameters
-        ----------
-        path:
-            Input waypoints in map-frame metres.
-        window:
-            Number of samples for the moving average (must be odd ≥ 1).
-        """
-        if len(path) <= 2 or window <= 1:
+        """Gradient-descent path smoothing while preserving endpoints."""
+        if len(path) < max(3, min_waypoints):
             return path
-        half = window // 2
-        smoothed: List[Tuple[float, float]] = [path[0]]
-        for i in range(1, len(path) - 1):
-            lo = max(0, i - half)
-            hi = min(len(path), i + half + 1)
-            xs = [p[0] for p in path[lo:hi]]
-            ys = [p[1] for p in path[lo:hi]]
-            smoothed.append((sum(xs) / len(xs), sum(ys) / len(ys)))
-        smoothed.append(path[-1])
-        return smoothed
+        smoothed = [list(p) for p in path]
+        change = tolerance + 1.0
+        while change > tolerance:
+            change = 0.0
+            for i in range(1, len(smoothed) - 1):
+                for j in range(2):
+                    old = smoothed[i][j]
+                    smoothed[i][j] += data_weight * (path[i][j] - smoothed[i][j])
+                    smoothed[i][j] += smooth_weight * (
+                        smoothed[i - 1][j]
+                        + smoothed[i + 1][j]
+                        - 2.0 * smoothed[i][j]
+                    )
+                    change += abs(old - smoothed[i][j])
+        return [tuple(p) for p in smoothed]
 
     @staticmethod
     def path_length(path: List[Tuple[float, float]]) -> float:

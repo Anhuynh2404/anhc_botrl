@@ -1,19 +1,27 @@
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
-from launch.conditions import IfCondition
+from launch.conditions import IfCondition, UnlessCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
-from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
+from launch.substitutions import (
+    EnvironmentVariable,
+    LaunchConfiguration,
+    PathJoinSubstitution,
+)
 from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
 
 
 def generate_launch_description():
     use_slam = LaunchConfiguration('use_slam')
+    map_file = LaunchConfiguration('map_file')
 
     slam_params = PathJoinSubstitution(
-        [FindPackageShare('anhc_localization'), 'config', 'slam_params.yaml'])
+        [FindPackageShare('anhc_localization'), 'config', 'anhc_slam_localization.yaml'])
     ekf_params = PathJoinSubstitution(
         [FindPackageShare('anhc_localization'), 'config', 'ekf_params.yaml'])
+    default_map_file = PathJoinSubstitution(
+        [EnvironmentVariable('HOME'), 'maps', 'anhc_indoor_map.yaml']
+    )
 
     slam_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
@@ -34,6 +42,11 @@ def generate_launch_description():
 
     return LaunchDescription([
         DeclareLaunchArgument('use_slam', default_value='true'),
+        DeclareLaunchArgument(
+            'map_file',
+            default_value=default_map_file,
+            description='Absolute path to saved map YAML file.',
+        ),
 
         # 1. IMU complementary filter (always on — lightweight)
         Node(
@@ -51,7 +64,32 @@ def generate_launch_description():
         # 2. slam_toolbox — online async SLAM producing /map and map→odom TF
         slam_launch,
 
-        # 3. robot_localization EKF — fuses /odom + /imu/data → /odometry/filtered
+        # 3. static map server for localization-only mode (disabled in SLAM mode)
+        Node(
+            package='nav2_map_server',
+            executable='map_server',
+            name='anhc_map_server',
+            output='screen',
+            parameters=[{
+                'use_sim_time': True,
+                'yaml_filename': map_file,
+            }],
+            condition=UnlessCondition(use_slam),
+        ),
+        Node(
+            package='nav2_lifecycle_manager',
+            executable='lifecycle_manager',
+            name='anhc_map_lifecycle_manager',
+            output='screen',
+            parameters=[{
+                'use_sim_time': True,
+                'autostart': True,
+                'node_names': ['anhc_map_server'],
+            }],
+            condition=UnlessCondition(use_slam),
+        ),
+
+        # 4. robot_localization EKF — fuses /odom + /imu/data → /odometry/filtered
         Node(
             package='robot_localization',
             executable='ekf_node',

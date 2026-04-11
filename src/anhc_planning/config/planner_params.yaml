@@ -2,6 +2,10 @@ anhc_global_planner:
   ros__parameters:
     use_sim_time: true
     algorithm: "astar"
+    obstacle_cost_threshold: 253
+    path_smooth_data_weight: 0.5
+    path_smooth_smooth_weight: 0.3
+    path_smooth_min_waypoints: 5
     astar:
       weight: 1.0
       allow_diagonal: true
@@ -11,13 +15,15 @@ anhc_global_planner:
 anhc_path_follower:
   ros__parameters:
     use_sim_time: true
-    max_linear_speed: 0.5
-    min_linear_speed: 0.08
+    max_linear_speed: 0.4
+    min_linear_speed: 0.05
     max_angular_speed: 1.0
-    lookahead_distance: 0.45
-    goal_tolerance_m: 0.15
-    curvature_slowdown_gain: 0.8
-    rotate_in_place_angle_rad: 1.0
-    rotate_in_place_angular_speed: 0.8
-    max_linear_accel: 0.6
-    max_angular_accel: 2.0
+    lookahead_distance: 0.6
+    goal_tolerance_m: 0.20
+    cmd_smoothing_alpha: 0.4
+    angular_Kp: 1.2
+    angular_Ki: 0.01
+    angular_Kd: 0.3
+    control_frequency: 20.0
+    transform_timeout: 0.1
+    path_lost_threshold: 1.5
