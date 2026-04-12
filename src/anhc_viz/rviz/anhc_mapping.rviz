@@ -79,12 +79,14 @@ Visualization Manager:
       Length: 1
       Name: Axes
       Radius: 0.1
-      Reference Frame: map
+      Reference Frame: odom
       Value: true
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
-    Fixed Frame: map
+    # odom: robot + laser match Gazebo (odom->base_footprint from sim). map: map fixed, robot jitters
+    # as slam_toolbox publishes map->odom. Switch to "map" here if you prefer a stable map on screen.
+    Fixed Frame: odom
     Frame Rate: 30
   Name: root
   Tools:
@@ -106,5 +108,5 @@ Visualization Manager:
       Distance: 12
       Name: Current View
       Pitch: 0.9
-      Target Frame: map
+      Target Frame: odom
       Yaw: 0.8

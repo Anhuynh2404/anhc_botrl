@@ -39,7 +39,8 @@ class AnhcGlobalPlannerNode(Node):
     Topics
     ------
     Subscriptions:
-        /costmap/global        — nav_msgs/OccupancyGrid
+        /costmap/global        — nav_msgs/OccupancyGrid (preferred when available)
+        /map                   — nav_msgs/OccupancyGrid (fallback / static map)
         /goal_pose             — geometry_msgs/PoseStamped
         /initialpose           — geometry_msgs/PoseWithCovarianceStamped
 
@@ -77,6 +78,7 @@ class AnhcGlobalPlannerNode(Node):
         self.declare_parameter("path_smooth_min_waypoints", 5)
 
         self._costmap: OccupancyGrid | None = None
+        self._have_global_costmap: bool = False
         self._manual_start: tuple[float, float] | None = None
         self._last_goal_msg: PoseStamped | None = None
 
@@ -84,7 +86,10 @@ class AnhcGlobalPlannerNode(Node):
         self._tf_listener = tf2_ros.TransformListener(self._tf_buffer, self)
 
         self._sub_costmap = self.create_subscription(
-            OccupancyGrid, "/costmap/global", self._cb_costmap, 1
+            OccupancyGrid, "/costmap/global", self._cb_global_costmap, 1
+        )
+        self._sub_map = self.create_subscription(
+            OccupancyGrid, "/map", self._cb_map, 1
         )
         self._sub_goal = self.create_subscription(
             PoseStamped, "/goal_pose", self._cb_goal, 10
@@ -108,7 +113,13 @@ class AnhcGlobalPlannerNode(Node):
     # Callbacks
     # ------------------------------------------------------------------
 
-    def _cb_costmap(self, msg: OccupancyGrid) -> None:
+    def _cb_global_costmap(self, msg: OccupancyGrid) -> None:
+        self._costmap = msg
+        self._have_global_costmap = True
+
+    def _cb_map(self, msg: OccupancyGrid) -> None:
+        if self._have_global_costmap:
+            return
         self._costmap = msg
 
     def _cb_initial_pose(self, msg: PoseWithCovarianceStamped) -> None:

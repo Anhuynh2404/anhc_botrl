@@ -25,3 +25,9 @@ anhc_path_follower:
     rotate_in_place_angular_speed: 0.8
     max_linear_accel: 0.6
     max_angular_accel: 2.0
+    path_lost_threshold: 0.85
+    cmd_smoothing_alpha: 0.35
+    angular_Kp: 1.2
+    angular_Ki: 0.02
+    angular_Kd: 0.08
+    transform_timeout: 0.35
