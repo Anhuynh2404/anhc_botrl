@@ -23,6 +23,7 @@ install(
   PROGRAMS
   scripts/anhc_scan_frame_relay.py
   scripts/anhc_odom_tf_broadcaster.py
+  scripts/anhc_cmd_vel_idle_gate.py
   DESTINATION lib/${PROJECT_NAME}
 )
 

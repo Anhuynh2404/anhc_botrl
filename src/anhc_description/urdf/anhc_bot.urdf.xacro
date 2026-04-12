@@ -94,12 +94,7 @@
           <color rgba="0.7 0.7 0.75 1.0"/>
         </material>
       </visual>
-      <collision>
-        <origin xyz="0 0 0" rpy="0 0 0"/>
-        <geometry>
-          <sphere radius="0.04"/>
-        </geometry>
-      </collision>
+      <!-- No collision: passive casters + Gazebo contact solver often inject yaw torque. -->
     </link>
     <joint name="${name}_joint" type="fixed">
       <parent link="base_link"/>
@@ -122,10 +117,7 @@
       <geometry><cylinder radius="0.04" length="0.05"/></geometry>
       <material name="blue"><color rgba="0.2 0.2 0.9 1.0"/></material>
     </visual>
-    <collision>
-      <origin xyz="0 0 0" rpy="0 0 0"/>
-      <geometry><cylinder radius="0.04" length="0.05"/></geometry>
-    </collision>
+    <!-- No collision: avoid spurious contacts with world mesh; lidar is not physical. -->
   </link>
   <joint name="lidar_joint" type="fixed">
     <parent link="base_link"/>

@@ -48,13 +48,19 @@
   gz_type_name: "gz.msgs.Odometry"
   direction: GZ_TO_ROS
 
-- ros_topic_name: "/cmd_vel"
-  gz_topic_name: "/cmd_vel"
+# ROS side gated by anhc_cmd_vel_idle_gate (zeros while no /cmd_vel traffic).
+# GZ topic must match DiffDrive (default /model/<name>/cmd_vel); spawn name is anhc_bot in anhc_sim.launch.py.
+- ros_topic_name: "/cmd_vel_gz"
+  gz_topic_name: "/model/anhc_bot/cmd_vel"
   ros_type_name: "geometry_msgs/msg/Twist"
   gz_type_name: "gz.msgs.Twist"
   direction: ROS_TO_GZ
+  subscriber_queue: 50
 
 # Do NOT bridge /tf bidirectionally: Gazebo's Pose_V tree conflicts with
 # robot_state_publisher + gz-sim-diff-drive-system (odom→base_footprint).
 # That duplicate TF causes LaserScan misalignment in RViz, broken SLAM maps,
 # and apparent desync between RViz and simulation.
+#
+# cmd_vel: ROS topic is /cmd_vel_gz (fed by anhc_cmd_vel_idle_gate from /cmd_vel) because
+# gz-sim8 DiffDrive does not implement cmd_vel_timeout — the last Twist is held forever.

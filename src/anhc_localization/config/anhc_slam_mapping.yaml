@@ -7,6 +7,10 @@ slam_toolbox:
     map_frame: map
     base_frame: base_footprint
     scan_topic: /scan
+    # Default in slam_toolbox is 1 — too small for sim+bridge latency; TF MessageFilter
+    # fills and drops scans → broken map (walls “rotate” with robot) and wild timestamps in logs.
+    scan_queue_size: 80
+    throttle_scans: 1
     use_scan_matching: true
     use_scan_barycenter: false
     minimum_travel_distance: 0.06
@@ -16,8 +20,8 @@ slam_toolbox:
     max_laser_range: 20.0
     minimum_laser_range: 0.1
     transform_publish_period: 0.02
-    # Extra slack while sim clock / odom spin up (reduces scan drops in message_filters)
-    transform_timeout: 0.35
+    # Match queue slack; sim odom + laser stamps can be tens of ms apart from bridge.
+    transform_timeout: 0.75
     tf_buffer_duration: 30.0
     do_loop_closing: true
     loop_search_maximum_distance: 3.0

@@ -42,7 +42,9 @@ def generate_launch_description() -> LaunchDescription:
     intro = LogInfo(
         msg=(
             "Teleop opens in a separate terminal window — click that window and use i/j/l/k "
-            "(see on-screen help in that window). teleop_twist_keyboard needs a real TTY."
+            "(see on-screen help in that window). teleop_twist_keyboard needs a real TTY. "
+            "Start Gazebo first (e.g. anhc_sim.launch.py or anhc_sim_mapping.launch.py); "
+            "commands go /cmd_vel → anhc_cmd_vel_idle_gate → /cmd_vel_gz → bridge."
         )
     )
 
