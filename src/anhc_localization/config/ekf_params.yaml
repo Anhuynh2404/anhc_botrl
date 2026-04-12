@@ -5,8 +5,8 @@ ekf_filter_node:
     two_d_mode: true
     sensor_timeout: 0.1
     print_diagnostics: true
-    # Gazebo DiffDrive already publishes odom→base_footprint. Publishing the
-    # same transform from EKF causes duplicate TF and breaks SLAM / RViz.
+    # Simulation publishes odom→base_footprint via anhc_odom_tf_node (from bridged /odom).
+    # Enabling EKF publish_tf would duplicate that transform and break SLAM / RViz.
     publish_tf: false
 
     # Frames

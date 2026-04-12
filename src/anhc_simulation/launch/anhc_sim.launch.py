@@ -1,11 +1,42 @@
+import os
+import subprocess
+import tempfile
+
+from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription, SetEnvironmentVariable
+from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription, OpaqueFunction, SetEnvironmentVariable
 from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import Command, LaunchConfiguration, PathJoinSubstitution
 from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
 from launch_ros.substitutions import FindPackageShare
+
+
+def _launch_joint_state_publisher(context):
+    """Jazzy ``joint_state_publisher`` does not load ``robot_description`` from parameters.
+
+    It only accepts a URDF path on the command line or ``std_msgs/String`` on the
+    ``robot_description`` topic. Passing ``ParameterValue(Command(xacro))`` via launch
+    therefore leaves ``free_joints`` empty and never publishes ``/joint_states``, which
+    breaks the TF tree and confuses slam_toolbox / RViz.
+    """
+    _ = context
+    share = get_package_share_directory("anhc_description")
+    xacro_path = os.path.join(share, "urdf", "anhc_bot.urdf.xacro")
+    urdf_xml = subprocess.check_output(["xacro", xacro_path], text=True)
+    fd, urdf_path = tempfile.mkstemp(prefix="anhc_bot_", suffix=".urdf")
+    with os.fdopen(fd, "w") as tmp:
+        tmp.write(urdf_xml)
+    return [
+        Node(
+            package="joint_state_publisher",
+            executable="joint_state_publisher",
+            arguments=[urdf_path],
+            parameters=[{"use_sim_time": True, "rate": 50}],
+            output="screen",
+        )
+    ]
 
 
 def generate_launch_description():
@@ -100,14 +131,8 @@ def generate_launch_description():
                 parameters=[robot_description],
                 output="screen",
             ),
-            # Publish joint states for non-fixed joints (e.g. left/right wheels)
-            # so that robot_state_publisher can generate full TFs for all links.
-            Node(
-                package="joint_state_publisher",
-                executable="joint_state_publisher",
-                parameters=[robot_description, {"rate": 50.0}],
-                output="screen",
-            ),
+            # Publish joint states for non-fixed joints (e.g. left/right wheels).
+            OpaqueFunction(function=_launch_joint_state_publisher),
             Node(
                 package="anhc_simulation",
                 executable="anhc_cmd_vel_idle_gate.py",
@@ -123,7 +148,16 @@ def generate_launch_description():
                 ],
                 output="screen",
             ),
-            # Scan relay + odom->base_footprint TF (see anhc_scan_frame_relay.py docstring).
+            Node(
+                package="anhc_simulation",
+                executable="anhc_odom_tf_node.py",
+                name="anhc_odom_tf_publisher",
+                parameters=[
+                    {"use_sim_time": True, "use_odometry_msg_stamp": True},
+                ],
+                output="screen",
+            ),
+            # Scan relay: /scan_gz -> /scan, header.frame_id only; odom TF from anhc_odom_tf_node.
             Node(
                 package="anhc_simulation",
                 executable="anhc_scan_frame_relay.py",
@@ -133,108 +167,14 @@ def generate_launch_description():
             ),
             spawn_entity,
 
-            # ── Gazebo ↔ ROS frame-ID bridge (static transforms) ────────────────────
-            # LaserScan /scan is republished as lidar_link (see anhc_scan_frame_relay).
-            # Keep lidar identity for point_cloud and any topic still using Gazebo frame.
+            # Gazebo scoped sensor frames → URDF names on /tf_static (stamp 0). Avoids
+            # C++ static_transform_publisher republishing on /tf with clock.now() ahead of
+            # bridged /odom stamps (tf2 "jump back in time" → buffer clear).
             Node(
-                package="tf2_ros",
-                executable="static_transform_publisher",
-                name="lidar_frame_bridge",
+                package="anhc_simulation",
+                executable="anhc_gz_frame_static_tf.py",
+                name="anhc_gz_frame_static_bridges",
                 parameters=[{"use_sim_time": True}],
-                arguments=[
-                    "--frame-id",
-                    "lidar_link",
-                    "--child-frame-id",
-                    "anhc_bot/base_footprint/anhc_lidar",
-                    "--x",
-                    "0",
-                    "--y",
-                    "0",
-                    "--z",
-                    "0",
-                    "--roll",
-                    "0",
-                    "--pitch",
-                    "0",
-                    "--yaw",
-                    "0",
-                ],
-                output="screen",
-            ),
-            # Camera / IMU may still use Gazebo scoped names → identity bridges below.
-            Node(
-                package="tf2_ros",
-                executable="static_transform_publisher",
-                name="gz_camera_rgb_frame_bridge",
-                parameters=[{"use_sim_time": True}],
-                arguments=[
-                    "--frame-id",
-                    "camera_link",
-                    "--child-frame-id",
-                    "anhc_bot/base_footprint/anhc_rgb_camera",
-                    "--x",
-                    "0",
-                    "--y",
-                    "0",
-                    "--z",
-                    "0",
-                    "--roll",
-                    "0",
-                    "--pitch",
-                    "0",
-                    "--yaw",
-                    "0",
-                ],
-                output="screen",
-            ),
-            Node(
-                package="tf2_ros",
-                executable="static_transform_publisher",
-                name="gz_camera_depth_frame_bridge",
-                parameters=[{"use_sim_time": True}],
-                arguments=[
-                    "--frame-id",
-                    "camera_link",
-                    "--child-frame-id",
-                    "anhc_bot/base_footprint/anhc_depth_camera",
-                    "--x",
-                    "0",
-                    "--y",
-                    "0",
-                    "--z",
-                    "0",
-                    "--roll",
-                    "0",
-                    "--pitch",
-                    "0",
-                    "--yaw",
-                    "0",
-                ],
-                output="screen",
-            ),
-            Node(
-                package="tf2_ros",
-                executable="static_transform_publisher",
-                name="gz_imu_frame_bridge",
-                parameters=[{"use_sim_time": True}],
-                arguments=[
-                    "--frame-id",
-                    "imu_link",
-                    "--child-frame-id",
-                    "anhc_bot/base_footprint/anhc_imu",
-                    "--x",
-                    "0",
-                    "--y",
-                    "0",
-                    "--z",
-                    "0",
-                    "--roll",
-                    "0",
-                    "--pitch",
-                    "0",
-                    "--yaw",
-                    "0",
-                ],
                 output="screen",
             ),
 
