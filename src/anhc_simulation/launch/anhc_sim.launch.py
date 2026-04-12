@@ -51,6 +51,7 @@ def generate_launch_description():
         launch_arguments={"gz_args": ["-r ", world_file, " ", LaunchConfiguration("gz_extra_args")]}.items(),
     )
 
+    # Entity name must match bridge_params.yaml gz_topic_name (/model/<name>/cmd_vel).
     spawn_entity = Node(
         package="ros_gz_sim",
         executable="create",
@@ -64,7 +65,7 @@ def generate_launch_description():
             "-y",
             "0.0",
             "-z",
-            "0.15",
+            "0.20",
             "-Y",
             "0.0",
         ],
@@ -104,7 +105,14 @@ def generate_launch_description():
             Node(
                 package="joint_state_publisher",
                 executable="joint_state_publisher",
-                parameters=[robot_description],
+                parameters=[robot_description, {"rate": 50.0}],
+                output="screen",
+            ),
+            Node(
+                package="anhc_simulation",
+                executable="anhc_cmd_vel_idle_gate.py",
+                name="anhc_cmd_vel_idle_gate",
+                parameters=[{"use_sim_time": True}],
                 output="screen",
             ),
             Node(
@@ -115,18 +123,11 @@ def generate_launch_description():
                 ],
                 output="screen",
             ),
+            # Scan relay + odom->base_footprint TF (see anhc_scan_frame_relay.py docstring).
             Node(
                 package="anhc_simulation",
                 executable="anhc_scan_frame_relay.py",
                 name="anhc_scan_frame_relay",
-                parameters=[{"use_sim_time": True}],
-                output="screen",
-            ),
-            # Gazebo diff-drive publishes odom TF on gz /tf only; bridge omits /tf.
-            Node(
-                package="anhc_simulation",
-                executable="anhc_odom_tf_broadcaster.py",
-                name="anhc_odom_tf_broadcaster",
                 parameters=[{"use_sim_time": True}],
                 output="screen",
             ),

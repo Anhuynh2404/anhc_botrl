@@ -16,7 +16,6 @@
     <kp>100000.0</kp>
     <kd>10.0</kd>
   </gazebo>
-
   <gazebo reference="lidar_link">
     <sensor name="anhc_lidar" type="gpu_lidar">
       <always_on>true</always_on>
@@ -103,9 +102,11 @@
       <max_angular_velocity>0.9</max_angular_velocity>
       <max_linear_acceleration>0.8</max_linear_acceleration>
       <max_angular_acceleration>1.8</max_angular_acceleration>
-      <min_linear_velocity>-0.2</min_linear_velocity>
-      <cmd_vel_timeout>0.35</cmd_vel_timeout>
-      <topic>/cmd_vel</topic>
+      <!-- Symmetric limits; gz-sim8 DiffDrive ignores cmd_vel_timeout (not in plugin). -->
+      <min_linear_velocity>-0.35</min_linear_velocity>
+      <min_angular_velocity>-0.9</min_angular_velocity>
+      <!-- Omit <topic>: DiffDrive defaults to /model/<model_name>/cmd_vel (Harmonic/Garden).
+           A bare /cmd_vel + ros_gz_bridge often does not reach the plugin transport scope. -->
       <odom_topic>/odom</odom_topic>
       <tf_topic>/tf</tf_topic>
       <frame_id>odom</frame_id>
