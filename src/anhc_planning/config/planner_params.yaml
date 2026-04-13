@@ -12,6 +12,22 @@ anhc_global_planner:
       allow_diagonal: true
     dijkstra:
       allow_diagonal: true
+    rrt_star:
+      max_iterations: 5000
+      step_size: 0.3
+      goal_sample_rate: 0.1
+      search_radius: 1.0
+    dstar_lite:
+      allow_diagonal: true
+    theta_star:
+      allow_diagonal: true
+    greedy_bfs:
+      allow_diagonal: true
+    jps:
+      obstacle_threshold: 100
+    prm:
+      n_samples: 1000          # tăng để phủ map tốt hơn
+      connection_radius: 2.0   # tăng để graph liên thông hơn
 
 anhc_path_follower:
   ros__parameters:

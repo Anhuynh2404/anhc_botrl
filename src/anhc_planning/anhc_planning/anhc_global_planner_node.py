@@ -26,8 +26,12 @@ from anhc_planning.planners import (
     BasePlanner,
     DijkstraPlanner,
     DStarLitePlanner,
+    GreedyBFSPlanner,
+    JPSPlanner,
+    PRMPlanner,
     RLPlanner,
     RRTStarPlanner,
+    ThetaStarPlanner,
 )
 
 _MAP_QOS = QoSProfile(
@@ -38,11 +42,15 @@ _MAP_QOS = QoSProfile(
 )
 
 _PLANNER_REGISTRY = {
-    "astar": AStarPlanner,
-    "dijkstra": DijkstraPlanner,
-    "rrt_star": RRTStarPlanner,
-    "dstar_lite": DStarLitePlanner,
-    "rl": RLPlanner,
+    "astar":       AStarPlanner,
+    "dijkstra":    DijkstraPlanner,
+    "rrt_star":    RRTStarPlanner,
+    "dstar_lite":  DStarLitePlanner,
+    "theta_star":  ThetaStarPlanner,
+    "greedy_bfs":  GreedyBFSPlanner,
+    "jps":         JPSPlanner,
+    "prm":         PRMPlanner,
+    "rl":          RLPlanner,
 }
 
 
@@ -75,7 +83,11 @@ class AnhcGlobalPlannerNode(Node):
             "astar",
             ParameterDescriptor(
                 type=ParameterType.PARAMETER_STRING,
-                description="Planning algorithm. Options: astar, dijkstra, rrt_star, dstar_lite, rl",
+                description=(
+                    "Planning algorithm. Options: astar, dijkstra, "
+                    "rrt_star, dstar_lite, theta_star, greedy_bfs, "
+                    "jps, prm, rl"
+                ),
             ),
         )
         self.declare_parameter(
@@ -287,19 +299,45 @@ class AnhcGlobalPlannerNode(Node):
             )
             cls = AStarPlanner
         ot = int(obstacle_threshold)
+        sd = float(smooth_data)
+        sw = float(smooth_weight)
+        smw = int(smooth_min_wp)
+
+        _smooth_kwargs = dict(
+            path_smooth_data_weight=sd,
+            path_smooth_smooth_weight=sw,
+            path_smooth_min_waypoints=smw,
+        )
+
         if cls in (AStarPlanner, DijkstraPlanner):
+            return cls(obstacle_threshold=ot, **_smooth_kwargs)
+
+        if cls is ThetaStarPlanner:
+            return cls(obstacle_threshold=ot, **_smooth_kwargs)
+
+        if cls is GreedyBFSPlanner:
+            return cls(obstacle_threshold=ot, **_smooth_kwargs)
+
+        if cls is JPSPlanner:
             return cls(
                 obstacle_threshold=ot,
-                path_smooth_data_weight=float(smooth_data),
-                path_smooth_smooth_weight=float(smooth_weight),
-                path_smooth_min_waypoints=int(smooth_min_wp),
+                path_smooth_data_weight=sd,
+                path_smooth_smooth_weight=sw,
+                path_smooth_min_waypoints=smw,
             )
+
+        if cls is PRMPlanner:
+            return cls(obstacle_threshold=ot)
+
         if cls is DStarLitePlanner:
             return cls(obstacle_threshold=ot)
+
         if cls is RRTStarPlanner:
             return cls(obstacle_threshold=ot)
+
         if cls is RLPlanner:
             return cls(obstacle_threshold=ot)
+
         return cls()
 
     def _build_path_msg(
