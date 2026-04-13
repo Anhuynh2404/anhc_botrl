@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import rclpy
 from rclpy.node import Node
+from rclpy.time import Time
 from rclpy.qos import (
     DurabilityPolicy,
     HistoryPolicy,
@@ -45,6 +46,13 @@ class ScanFrameRelay(Node):
         )
 
     def _cb(self, msg: LaserScan) -> None:
+        # Drop scans whose stamp lags sim clock by many seconds (stale GZ/bridge
+        # leftovers confuse RViz message filters).
+        now = self.get_clock().now()
+        st = Time.from_msg(msg.header.stamp)
+        age_ns = now.nanoseconds - st.nanoseconds
+        if age_ns > 2_000_000_000:
+            return
         msg.header.frame_id = self._frame
         self._pub.publish(msg)
 

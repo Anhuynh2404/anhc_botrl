@@ -11,6 +11,12 @@ from geometry_msgs.msg import PoseStamped, PoseWithCovarianceStamped
 from nav_msgs.msg import OccupancyGrid, Path
 from rcl_interfaces.msg import ParameterDescriptor, ParameterType
 from rclpy.node import Node
+from rclpy.qos import (
+    DurabilityPolicy,
+    HistoryPolicy,
+    QoSProfile,
+    ReliabilityPolicy,
+)
 from std_msgs.msg import Bool, String
 import tf2_ros
 from tf2_ros import TransformException
@@ -22,6 +28,13 @@ from anhc_planning.planners import (
     DStarLitePlanner,
     RLPlanner,
     RRTStarPlanner,
+)
+
+_MAP_QOS = QoSProfile(
+    reliability=ReliabilityPolicy.RELIABLE,
+    durability=DurabilityPolicy.TRANSIENT_LOCAL,
+    history=HistoryPolicy.KEEP_LAST,
+    depth=1,
 )
 
 _PLANNER_REGISTRY = {
@@ -67,10 +80,10 @@ class AnhcGlobalPlannerNode(Node):
         )
         self.declare_parameter(
             "obstacle_cost_threshold",
-            253,
+            100,
             ParameterDescriptor(
                 type=ParameterType.PARAMETER_INTEGER,
-                description="Cells with cost >= threshold are treated as lethal.",
+                description="Cells with cost >= threshold are lethal (map 0–100; costmap lethal 100).",
             ),
         )
         self.declare_parameter("path_smooth_data_weight", 0.5)
@@ -81,15 +94,16 @@ class AnhcGlobalPlannerNode(Node):
         self._have_global_costmap: bool = False
         self._manual_start: tuple[float, float] | None = None
         self._last_goal_msg: PoseStamped | None = None
+        self._pending_goal: PoseStamped | None = None
 
         self._tf_buffer = tf2_ros.Buffer()
         self._tf_listener = tf2_ros.TransformListener(self._tf_buffer, self)
 
         self._sub_costmap = self.create_subscription(
-            OccupancyGrid, "/costmap/global", self._cb_global_costmap, 1
+            OccupancyGrid, "/costmap/global", self._cb_global_costmap, _MAP_QOS
         )
         self._sub_map = self.create_subscription(
-            OccupancyGrid, "/map", self._cb_map, 1
+            OccupancyGrid, "/map", self._cb_map, _MAP_QOS
         )
         self._sub_goal = self.create_subscription(
             PoseStamped, "/goal_pose", self._cb_goal, 10
@@ -116,11 +130,13 @@ class AnhcGlobalPlannerNode(Node):
     def _cb_global_costmap(self, msg: OccupancyGrid) -> None:
         self._costmap = msg
         self._have_global_costmap = True
+        self._flush_pending_goal()
 
     def _cb_map(self, msg: OccupancyGrid) -> None:
         if self._have_global_costmap:
             return
         self._costmap = msg
+        self._flush_pending_goal()
 
     def _cb_initial_pose(self, msg: PoseWithCovarianceStamped) -> None:
         pos = msg.pose.pose.position
@@ -146,8 +162,9 @@ class AnhcGlobalPlannerNode(Node):
 
     def _plan_to_goal(self, msg: PoseStamped) -> None:
         if self._costmap is None:
-            self.get_logger().warn(
-                "[anhc_global_planner] goal received but no costmap yet — ignoring"
+            self._pending_goal = msg
+            self.get_logger().info(
+                "[anhc_global_planner] goal received before map/costmap — will plan when data arrives"
             )
             return
 
@@ -197,6 +214,13 @@ class AnhcGlobalPlannerNode(Node):
 
         self._pub_path.publish(self._build_path_msg(path_points, msg.header.frame_id))
         self._pub_stats.publish(String(data=json.dumps(stats)))
+
+    def _flush_pending_goal(self) -> None:
+        if self._pending_goal is None or self._costmap is None:
+            return
+        pending = self._pending_goal
+        self._pending_goal = None
+        self._plan_to_goal(pending)
 
     # ------------------------------------------------------------------
     # Helpers

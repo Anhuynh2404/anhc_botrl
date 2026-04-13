@@ -42,6 +42,7 @@ from launch.substitutions import (
 )
 from launch_ros.actions import LifecycleNode, Node
 from launch_ros.event_handlers import OnStateTransition
+from launch_ros.parameter_descriptions import ParameterValue
 from launch_ros.events.lifecycle import ChangeState
 from launch_ros.substitutions import FindPackageShare
 from lifecycle_msgs.msg import Transition
@@ -151,12 +152,20 @@ def _localization_and_lifecycle(context):
             lm,
         ]
 
+    initial_pose_sync = Node(
+        package="anhc_simulation",
+        executable="anhc_initialpose_odom_stamp.py",
+        name="anhc_initialpose_odom_stamp",
+        output="screen",
+        parameters=[{"use_sim_time": True}],
+    )
     amcl_node = Node(
         package="nav2_amcl",
         executable="amcl",
         name="amcl",
         output="screen",
         parameters=[amcl_params, {"use_sim_time": True}],
+        remappings=[("initialpose", "initialpose_synced")],
     )
     lm = Node(
         package="nav2_lifecycle_manager",
@@ -179,6 +188,7 @@ def _localization_and_lifecycle(context):
                 "this stack as-is)."
             )
         ),
+        initial_pose_sync,
         amcl_node,
         lm,
     ]
@@ -237,6 +247,11 @@ def generate_launch_description() -> LaunchDescription:
                 description="Gazebo world name (without .sdf).",
             ),
             DeclareLaunchArgument(
+                "gz_world_name",
+                default_value="anhc_indoor_world",
+                description="Must match <world name=\"...\"> in the SDF (for set_pose service).",
+            ),
+            DeclareLaunchArgument(
                 "gz_extra_args",
                 default_value="",
                 description="Extra gz sim args (empty = GUI; use -s for headless).",
@@ -252,6 +267,22 @@ def generate_launch_description() -> LaunchDescription:
                 description="Must stay false for bundled slam_toolbox launch pattern.",
             ),
             sim_launch,
+            Node(
+                package="anhc_simulation",
+                executable="anhc_initialpose_to_gz.py",
+                name="anhc_initialpose_to_gz",
+                output="screen",
+                parameters=[
+                    {"use_sim_time": True},
+                    {
+                        "gz_world": ParameterValue(
+                            LaunchConfiguration("gz_world_name"), value_type=str
+                        )
+                    },
+                    {"model_name": "anhc_bot"},
+                    {"fixed_z": 0.2},
+                ],
+            ),
             Node(
                 package="anhc_localization",
                 executable="anhc_imu_filter_node.py",
