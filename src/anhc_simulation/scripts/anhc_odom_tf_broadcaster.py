@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Publish odom -> base_link TF from bridged /odom.
+"""Publish odom -> base_footprint TF from bridged /odom.
 
 Gazebo diff-drive publishes TF only on gz transport; ros_gz_bridge does not forward
 /tf (see bridge_params.yaml). SLAM and RViz need odom->base in the ROS tf2 buffer.

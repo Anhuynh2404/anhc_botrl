@@ -138,9 +138,14 @@ class BasePlanner(ABC):
         origin_y: float,
         resolution: float,
     ) -> Tuple[int, int]:
-        """Convert map-frame (x, y) metres to (row, col) grid indices."""
-        col = int((x - origin_x) / resolution)
-        row = int((y - origin_y) / resolution)
+        """Convert map-frame (x, y) metres to (row, col) grid indices.
+
+        Row-major OccupancyGrid indexing uses ``index = row * width + col`` with
+        ``col`` along map +x and ``row`` along map +y. Use ``floor`` so negative
+        coordinates and cell boundaries match map_server / RViz.
+        """
+        col = int(math.floor((x - origin_x) / resolution))
+        row = int(math.floor((y - origin_y) / resolution))
         return (row, col)
 
     @staticmethod

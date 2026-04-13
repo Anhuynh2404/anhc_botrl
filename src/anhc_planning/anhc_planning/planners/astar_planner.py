@@ -20,7 +20,8 @@ _NEIGHBOURS = [
     ( 1,  1, 1.4142),
 ]
 
-_OBSTACLE_THRESHOLD = 253
+# map_server / trinary maps use 0–100; inflated global costmap uses lethal 100, costs 1–99.
+_OBSTACLE_THRESHOLD = 100
 _COST_SCALE = 1.0 / 50.0
 
 

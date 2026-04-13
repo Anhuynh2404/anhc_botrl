@@ -1,15 +1,14 @@
 #!/usr/bin/env python3
-"""Republish Gazebo LaserScan on /scan with URDF frame_id (lidar_link).
+"""Relay /scan_gz -> /scan: only rewrites LaserScan header.frame_id (e.g. to lidar_link).
 
-Gazebo gpu_lidar keeps a scoped frame name; message_filters in slam_toolbox / RViz
-often overflow when resolving that frame. Rewriting the header avoids the extra TF hop
-for scan only (point_cloud etc. still use static TF bridges).
+Does not transform ranges, touch TF, or re-stamp; keeps message payload identical otherwise.
 """
 
 from __future__ import annotations
 
 import rclpy
 from rclpy.node import Node
+from rclpy.time import Time
 from rclpy.qos import (
     DurabilityPolicy,
     HistoryPolicy,
@@ -19,11 +18,8 @@ from rclpy.qos import (
 )
 from sensor_msgs.msg import LaserScan
 
-# Subscribe like a sensor subscriber (Gazebo→ROS laser is usually best-effort).
-_SUB_QOS = qos_profile_sensor_data
-
-# Downstream (slam_toolbox, RViz) typically expects a deeper reliable queue.
-_PUB_QOS = QoSProfile(
+# Match GZ→ROS laser bridge (typically best-effort); default depth-10 reliable sub sees 0 Hz.
+_PUB_SCAN_QOS = QoSProfile(
     reliability=ReliabilityPolicy.RELIABLE,
     durability=DurabilityPolicy.VOLATILE,
     history=HistoryPolicy.KEEP_LAST,
@@ -42,19 +38,27 @@ class ScanFrameRelay(Node):
         out_topic = self.get_parameter("output_topic").get_parameter_value().string_value
         self._frame = self.get_parameter("output_frame_id").get_parameter_value().string_value
 
-        self._pub = self.create_publisher(LaserScan, out_topic, _PUB_QOS)
-        self.create_subscription(LaserScan, in_topic, self._cb, _SUB_QOS)
+        self._pub = self.create_publisher(LaserScan, out_topic, _PUB_SCAN_QOS)
+        self.create_subscription(LaserScan, in_topic, self._cb, qos_profile_sensor_data)
+
         self.get_logger().info(
-            f"Relay LaserScan {in_topic!r} -> {out_topic!r} frame_id={self._frame!r}"
+            f"Relay {in_topic!r} -> {out_topic!r} frame_id={self._frame!r} (header only)"
         )
 
     def _cb(self, msg: LaserScan) -> None:
+        # Drop scans whose stamp lags sim clock by many seconds (stale GZ/bridge
+        # leftovers confuse RViz message filters).
+        now = self.get_clock().now()
+        st = Time.from_msg(msg.header.stamp)
+        age_ns = now.nanoseconds - st.nanoseconds
+        if age_ns > 2_000_000_000:
+            return
         msg.header.frame_id = self._frame
         self._pub.publish(msg)
 
 
-def main() -> None:
-    rclpy.init()
+def main(args=None) -> None:
+    rclpy.init(args=args)
     node = ScanFrameRelay()
     try:
         rclpy.spin(node)

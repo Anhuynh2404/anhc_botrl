@@ -17,12 +17,18 @@ endif()
 
 install(DIRECTORY worlds/ DESTINATION share/${PROJECT_NAME}/worlds)
 install(DIRECTORY models/ DESTINATION share/${PROJECT_NAME}/models)
+install(DIRECTORY maps/ DESTINATION share/${PROJECT_NAME}/maps)
 install(DIRECTORY launch/ DESTINATION share/${PROJECT_NAME}/launch)
 install(DIRECTORY config/ DESTINATION share/${PROJECT_NAME}/config)
 install(
   PROGRAMS
   scripts/anhc_scan_frame_relay.py
   scripts/anhc_odom_tf_broadcaster.py
+  scripts/anhc_odom_tf_node.py
+  scripts/anhc_cmd_vel_idle_gate.py
+  scripts/anhc_gz_frame_static_tf.py
+  scripts/anhc_initialpose_odom_stamp.py
+  scripts/anhc_initialpose_to_gz.py
   DESTINATION lib/${PROJECT_NAME}
 )
 

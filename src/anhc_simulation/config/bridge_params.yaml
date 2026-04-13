@@ -5,12 +5,14 @@
   direction: GZ_TO_ROS
 
 # Raw scan (Gazebo frame_id). anhc_scan_frame_relay republishes as /scan → lidar_link.
+# SENSOR_DATA → ROS publisher best-effort so anhc_scan_frame_relay can subscribe reliably.
 - ros_topic_name: "/scan_gz"
   # Gazebo gpu_lidar plugin publishes LaserScan on "/lidar" (not "/lidar/scan").
   gz_topic_name: "/lidar"
   ros_type_name: "sensor_msgs/msg/LaserScan"
   gz_type_name: "gz.msgs.LaserScan"
   direction: GZ_TO_ROS
+  qos_profile: SENSOR_DATA
 
 - ros_topic_name: "/point_cloud"
   gz_topic_name: "/lidar/points"
@@ -42,19 +44,26 @@
   gz_type_name: "gz.msgs.IMU"
   direction: GZ_TO_ROS
 
+# /odom: ONLY gz-sim-odometry-publisher-system (true model pose). DiffDrive wheel odom must use another
+# GZ topic (see anhc_bot.gazebo.xacro odom_topic) — DiffDrive still publishes odom on many gz-sim8 builds
+# even when <publish_odom> is false, and mixing two sources on /odom makes RViz shake violently.
 - ros_topic_name: "/odom"
   gz_topic_name: "/odom"
   ros_type_name: "nav_msgs/msg/Odometry"
   gz_type_name: "gz.msgs.Odometry"
   direction: GZ_TO_ROS
 
-- ros_topic_name: "/cmd_vel"
-  gz_topic_name: "/cmd_vel"
+# odom→base_footprint TF: use anhc_odom_tf_node.py from bridged /odom (Harmonic often uses
+# /world/.../model/.../tf; Pose_V bridge topic mismatch breaks slam_toolbox silently).
+
+# ROS side gated by anhc_cmd_vel_idle_gate (zeros while no /cmd_vel traffic).
+# GZ topic must match DiffDrive (default /model/<name>/cmd_vel); spawn name is anhc_bot in anhc_sim.launch.py.
+- ros_topic_name: "/cmd_vel_gz"
+  gz_topic_name: "/model/anhc_bot/cmd_vel"
   ros_type_name: "geometry_msgs/msg/Twist"
   gz_type_name: "gz.msgs.Twist"
   direction: ROS_TO_GZ
+  subscriber_queue: 50
 
-# Do NOT bridge /tf bidirectionally: Gazebo's Pose_V tree conflicts with
-# robot_state_publisher + gz-sim-diff-drive-system (odom→base_footprint).
-# That duplicate TF causes LaserScan misalignment in RViz, broken SLAM maps,
-# and apparent desync between RViz and simulation.
+# cmd_vel: ROS topic is /cmd_vel_gz (fed by anhc_cmd_vel_idle_gate from /cmd_vel) because
+# gz-sim8 DiffDrive does not implement cmd_vel_timeout — the last Twist is held forever.
