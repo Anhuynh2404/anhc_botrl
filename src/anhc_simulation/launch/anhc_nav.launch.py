@@ -30,6 +30,7 @@ from launch.actions import (
     OpaqueFunction,
     RegisterEventHandler,
     SetEnvironmentVariable,
+    SetLaunchConfiguration,
 )
 from launch.conditions import IfCondition
 from launch.events import matches_action
@@ -46,6 +47,19 @@ from launch_ros.parameter_descriptions import ParameterValue
 from launch_ros.events.lifecycle import ChangeState
 from launch_ros.substitutions import FindPackageShare
 from lifecycle_msgs.msg import Transition
+
+
+def _apply_office_v2_shorthand(context):
+    """When use_office_v2:=true, override 'world', 'map_file', and 'gz_world_name'."""
+    if context.perform_substitution(LaunchConfiguration("use_office_v2")) != "true":
+        return []
+    share = get_package_share_directory("anhc_simulation")
+    map_path = os.path.join(share, "maps", "anhc_office_v2_map.yaml")
+    return [
+        SetLaunchConfiguration("world", "anhc_office_v2"),
+        SetLaunchConfiguration("map_file", map_path),
+        SetLaunchConfiguration("gz_world_name", "anhc_office_v2_world"),
+    ]
 
 
 def _localization_and_lifecycle(context):
@@ -243,6 +257,15 @@ def generate_launch_description() -> LaunchDescription:
         [
             SetEnvironmentVariable("FASTDDS_BUILTIN_TRANSPORTS", "UDPv4"),
             DeclareLaunchArgument(
+                "use_office_v2",
+                default_value="false",
+                description=(
+                    "Shorthand: when true, sets world:=anhc_office_v2, "
+                    "map_file to the package-installed anhc_office_v2_map.yaml, "
+                    "and gz_world_name:=anhc_office_v2_world."
+                ),
+            ),
+            DeclareLaunchArgument(
                 "map_file",
                 default_value=default_map,
                 description="Absolute path to map YAML for map_server.",
@@ -282,6 +305,7 @@ def generate_launch_description() -> LaunchDescription:
                 default_value="false",
                 description="Must stay false for bundled slam_toolbox launch pattern.",
             ),
+            OpaqueFunction(function=_apply_office_v2_shorthand),
             sim_launch,
             OpaqueFunction(function=_gz_set_pose_service_bridge),
             Node(

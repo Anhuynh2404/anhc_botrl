@@ -1,3 +1,16 @@
+# Quét map
+## Chạy teleop để quét map
+
+```bash
+ros2 launch anhc_simulation anhc_teleop.launch.py
+```
+
+## Lưu map
+
+```bash
+ros2 run nav2_map_server map_saver_cli -f src/anhc_simulation/maps/name_map
+```
+
 # Hướng dẫn chạy Navigation với map đã lưu
 
 ## Bước 1 — Build
@@ -11,13 +24,27 @@ source install/setup.bash
 ## Bước 2 — Launch với A* (mặc định)
 
 ```bash
-ros2 launch anhc_simulation anhc_nav.launch.py algorithm:=astar
+cd ~/anhc_botrl
+source install/setup.bash
+
+ros2 launch anhc_simulation anhc_nav.launch.py \
+  world:=anhc_indoor \
+  map_file:=/home/anhuynh/anhc_botrl/src/anhc_simulation/maps/anhc_office_map.yaml \
+  algorithm:=astar \
+  use_rviz:=true
 ```
 
 ## Bước 3 — Launch với Dijkstra
 
 ```bash
-ros2 launch anhc_simulation anhc_nav.launch.py algorithm:=dijkstra
+cd ~/anhc_botrl
+source install/setup.bash
+
+ros2 launch anhc_simulation anhc_nav.launch.py \
+  world:=anhc_indoor \
+  map_file:=/home/anhuynh/anhc_botrl/src/anhc_simulation/maps/anhc_office_map.yaml \
+  algorithm:=dijkstra \
+  use_rviz:=true
 ```
 
 ## Bước 4 — Đặt goal trong RViz2

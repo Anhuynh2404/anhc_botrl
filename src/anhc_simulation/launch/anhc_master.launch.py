@@ -21,16 +21,33 @@ Usage examples
   ros2 launch anhc_simulation anhc_master.launch.py world:=anhc_outdoor
 """
 
+import os
+
+from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import (
     DeclareLaunchArgument,
     IncludeLaunchDescription,
+    OpaqueFunction,
+    SetLaunchConfiguration,
 )
 from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import EnvironmentVariable, LaunchConfiguration, PathJoinSubstitution
 from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
+
+
+def _apply_office_v2_shorthand(context):
+    """When use_office_v2:=true, override 'world' and 'map_file' for office_v2."""
+    if context.perform_substitution(LaunchConfiguration("use_office_v2")) != "true":
+        return []
+    share = get_package_share_directory("anhc_simulation")
+    map_path = os.path.join(share, "maps", "anhc_office_v2_map.yaml")
+    return [
+        SetLaunchConfiguration("world", "anhc_office_v2"),
+        SetLaunchConfiguration("map_file", map_path),
+    ]
 
 
 def generate_launch_description() -> LaunchDescription:
@@ -88,6 +105,14 @@ def generate_launch_description() -> LaunchDescription:
         "use_slam",
         default_value="true",
         description="SLAM mapping (true) or static map_server + localization yaml (false).",
+    )
+    use_office_v2_arg = DeclareLaunchArgument(
+        "use_office_v2",
+        default_value="false",
+        description=(
+            "Shorthand: when true, sets world:=anhc_office_v2 and map_file to the "
+            "package-installed anhc_office_v2_map.yaml. Overrides 'world' and 'map_file'."
+        ),
     )
 
     # ── helper ─────────────────────────────────────────────────────────────────
@@ -175,6 +200,8 @@ def generate_launch_description() -> LaunchDescription:
         scenario_file_arg,
         map_file_arg,
         use_slam_arg,
+        use_office_v2_arg,
+        OpaqueFunction(function=_apply_office_v2_shorthand),
         sim_launch,
         perception_launch,
         planning_launch,
