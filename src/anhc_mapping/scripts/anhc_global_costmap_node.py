@@ -11,6 +11,20 @@ import numpy as np
 import rclpy
 from nav_msgs.msg import OccupancyGrid
 from rclpy.node import Node
+from rclpy.qos import (
+    DurabilityPolicy,
+    HistoryPolicy,
+    QoSProfile,
+    ReliabilityPolicy,
+)
+
+# Match nav2 map_server (reliable + transient_local) so late subscribers still receive data.
+_MAP_QOS = QoSProfile(
+    reliability=ReliabilityPolicy.RELIABLE,
+    durability=DurabilityPolicy.TRANSIENT_LOCAL,
+    history=HistoryPolicy.KEEP_LAST,
+    depth=1,
+)
 
 try:
     from scipy.ndimage import distance_transform_edt
@@ -33,9 +47,9 @@ class AhncGlobalCostmapNode(Node):
         self._robot_r = self.get_parameter('robot_radius').value
 
         self._sub = self.create_subscription(
-            OccupancyGrid, '/map', self._map_cb, 1)
+            OccupancyGrid, '/map', self._map_cb, _MAP_QOS)
         self._pub = self.create_publisher(
-            OccupancyGrid, '/costmap/global', 1)
+            OccupancyGrid, '/costmap/global', _MAP_QOS)
 
         self.get_logger().info('anhc_global_costmap_node started')
 

@@ -20,8 +20,9 @@ _NEIGHBOURS = [
     ( 1,  1, 1.4142),
 ]
 
-_OBSTACLE_THRESHOLD = 65
-_COST_SCALE = 1.0 / 100.0  # normalise 0–100 cell cost to 0–1
+# map_server / trinary maps use 0–100; inflated global costmap uses lethal 100, costs 1–99.
+_OBSTACLE_THRESHOLD = 100
+_COST_SCALE = 1.0 / 50.0
 
 
 class AStarPlanner(BasePlanner):
@@ -34,8 +35,12 @@ class AStarPlanner(BasePlanner):
         (faster, sub-optimal).
     allow_diagonal:
         Enable 8-connectivity when True; 4-connectivity otherwise.
-    smooth_window:
-        Moving-average window size for post-planning path smoothing.
+    path_smooth_data_weight:
+        Data retention weight for gradient-descent smoothing.
+    path_smooth_smooth_weight:
+        Smoothness weight for gradient-descent smoothing.
+    path_smooth_min_waypoints:
+        Skip smoothing when path is shorter than this.
     obstacle_threshold:
         Cells with cost ≥ this value are treated as impassable.
     """
@@ -44,12 +49,16 @@ class AStarPlanner(BasePlanner):
         self,
         weight: float = 1.0,
         allow_diagonal: bool = True,
-        smooth_window: int = 3,
+        path_smooth_data_weight: float = 0.5,
+        path_smooth_smooth_weight: float = 0.3,
+        path_smooth_min_waypoints: int = 5,
         obstacle_threshold: int = _OBSTACLE_THRESHOLD,
     ) -> None:
         self._weight = weight
         self._allow_diagonal = allow_diagonal
-        self._smooth_window = smooth_window
+        self._path_smooth_data_weight = path_smooth_data_weight
+        self._path_smooth_smooth_weight = path_smooth_smooth_weight
+        self._path_smooth_min_waypoints = path_smooth_min_waypoints
         self._obstacle_threshold = obstacle_threshold
         self._stats: Dict = {}
 
@@ -64,7 +73,9 @@ class AStarPlanner(BasePlanner):
         return {
             "weight": self._weight,
             "allow_diagonal": self._allow_diagonal,
-            "smooth_window": self._smooth_window,
+            "path_smooth_data_weight": self._path_smooth_data_weight,
+            "path_smooth_smooth_weight": self._path_smooth_smooth_weight,
+            "path_smooth_min_waypoints": self._path_smooth_min_waypoints,
             "obstacle_threshold": self._obstacle_threshold,
         }
 
@@ -86,7 +97,10 @@ class AStarPlanner(BasePlanner):
         resolution: float = info.resolution
         ox: float = info.origin.position.x
         oy: float = info.origin.position.y
-        data: List[int] = list(costmap.data)
+        data: List[int] = [
+            -1 if v == -1 else (v + 256 if v < 0 else v)
+            for v in costmap.data
+        ]
 
         start_cell = self.world_to_grid(start[0], start[1], ox, oy, resolution)
         goal_cell = self.world_to_grid(goal[0], goal[1], ox, oy, resolution)
@@ -94,14 +108,24 @@ class AStarPlanner(BasePlanner):
         if not self.is_valid_cell(
             start_cell[0], start_cell[1], height, width, data, self._obstacle_threshold
         ):
-            self._record_stats(0, time.monotonic() - t0, 0.0)
-            return []
+            snapped_start = self.nearest_valid_cell(
+                start_cell, height, width, data, self._obstacle_threshold
+            )
+            if snapped_start is None:
+                self._record_stats(0, time.monotonic() - t0, 0.0)
+                return []
+            start_cell = snapped_start
 
         if not self.is_valid_cell(
             goal_cell[0], goal_cell[1], height, width, data, self._obstacle_threshold
         ):
-            self._record_stats(0, time.monotonic() - t0, 0.0)
-            return []
+            snapped_goal = self.nearest_valid_cell(
+                goal_cell, height, width, data, self._obstacle_threshold
+            )
+            if snapped_goal is None:
+                self._record_stats(0, time.monotonic() - t0, 0.0)
+                return []
+            goal_cell = snapped_goal
 
         # open heap: (f, g, (row, col))
         open_heap: List[Tuple[float, float, Tuple[int, int]]] = []
@@ -124,7 +148,12 @@ class AStarPlanner(BasePlanner):
                     self.grid_to_world(r, c, ox, oy, resolution)
                     for r, c in grid_path
                 ]
-                smoothed = self.smooth_path(world_path, self._smooth_window)
+                smoothed = self.smooth_path(
+                    world_path,
+                    data_weight=self._path_smooth_data_weight,
+                    smooth_weight=self._path_smooth_smooth_weight,
+                    min_waypoints=self._path_smooth_min_waypoints,
+                )
                 length = self.path_length(smoothed)
                 elapsed_ms = (time.monotonic() - t0) * 1000.0
                 self._record_stats(nodes_expanded, elapsed_ms, length)

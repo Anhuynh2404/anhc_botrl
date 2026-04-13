@@ -32,11 +32,13 @@ class RRTStarPlanner(BasePlanner):
         step_size: float = 0.3,
         goal_sample_rate: float = 0.1,
         search_radius: float = 1.0,
+        obstacle_threshold: int = 65,
     ) -> None:
         self._max_iterations = max_iterations
         self._step_size = step_size
         self._goal_sample_rate = goal_sample_rate
         self._search_radius = search_radius
+        self._obstacle_threshold = obstacle_threshold
 
     def get_name(self) -> str:
         return "rrt_star"
@@ -47,6 +49,7 @@ class RRTStarPlanner(BasePlanner):
             "step_size": self._step_size,
             "goal_sample_rate": self._goal_sample_rate,
             "search_radius": self._search_radius,
+            "obstacle_threshold": self._obstacle_threshold,
         }
 
     def plan(

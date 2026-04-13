@@ -21,3 +21,11 @@ scenario_3:
   goal: [9.0, -5.0]
   algorithms: [astar, dijkstra]
   trials: 3
+
+scenario_4:
+  name: "office_v2_cross_room"
+  map_file: "anhc_office_v2_map"    # used as label; actual file set via launch arg
+  start: [0.0, 0.0]
+  goal: [5.0, 5.0]                  # update after inspecting actual map
+  algorithms: [astar, dijkstra, theta_star, greedy_bfs, jps, rrt_star, dstar_lite, prm]
+  trials: 3

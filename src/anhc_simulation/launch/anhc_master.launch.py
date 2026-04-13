@@ -21,16 +21,33 @@ Usage examples
   ros2 launch anhc_simulation anhc_master.launch.py world:=anhc_outdoor
 """
 
+import os
+
+from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import (
     DeclareLaunchArgument,
     IncludeLaunchDescription,
+    OpaqueFunction,
+    SetLaunchConfiguration,
 )
 from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
-from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
+from launch.substitutions import EnvironmentVariable, LaunchConfiguration, PathJoinSubstitution
 from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
+
+
+def _apply_office_v2_shorthand(context):
+    """When use_office_v2:=true, override 'world' and 'map_file' for office_v2."""
+    if context.perform_substitution(LaunchConfiguration("use_office_v2")) != "true":
+        return []
+    share = get_package_share_directory("anhc_simulation")
+    map_path = os.path.join(share, "maps", "anhc_office_v2_map.yaml")
+    return [
+        SetLaunchConfiguration("world", "anhc_office_v2"),
+        SetLaunchConfiguration("map_file", map_path),
+    ]
 
 
 def generate_launch_description() -> LaunchDescription:
@@ -51,6 +68,11 @@ def generate_launch_description() -> LaunchDescription:
         default_value="false",
         description="Include the benchmark framework (runner + live_metrics + analyzer).",
     )
+    run_planning_arg = DeclareLaunchArgument(
+        "run_planning",
+        default_value="true",
+        description="Include planning stack (global planner + path follower). Set false for manual teleop.",
+    )
     world_arg = DeclareLaunchArgument(
         "world",
         default_value="anhc_indoor",
@@ -69,6 +91,28 @@ def generate_launch_description() -> LaunchDescription:
             "anhc_benchmark_scenarios.yaml",
         ]),
         description="Benchmark scenario YAML (used only when run_benchmark:=true).",
+    )
+    map_file_arg = DeclareLaunchArgument(
+        "map_file",
+        default_value=PathJoinSubstitution([
+            EnvironmentVariable("HOME"),
+            "maps",
+            "anhc_indoor_map.yaml",
+        ]),
+        description="Absolute path to saved map YAML for localization map_server.",
+    )
+    use_slam_arg = DeclareLaunchArgument(
+        "use_slam",
+        default_value="true",
+        description="SLAM mapping (true) or static map_server + localization yaml (false).",
+    )
+    use_office_v2_arg = DeclareLaunchArgument(
+        "use_office_v2",
+        default_value="false",
+        description=(
+            "Shorthand: when true, sets world:=anhc_office_v2 and map_file to the "
+            "package-installed anhc_office_v2_map.yaml. Overrides 'world' and 'map_file'."
+        ),
     )
 
     # ── helper ─────────────────────────────────────────────────────────────────
@@ -98,13 +142,21 @@ def generate_launch_description() -> LaunchDescription:
     )
 
     # ── 2. perception (localization + sensors + mapping) ───────────────────────
-    perception_launch = _inc("anhc_perception", "anhc_perception_full.launch.py")
+    perception_launch = _inc(
+        "anhc_perception",
+        "anhc_perception_full.launch.py",
+        {
+            "map_file": LaunchConfiguration("map_file"),
+            "use_slam": LaunchConfiguration("use_slam"),
+        },
+    )
 
     # ── 3. planning ────────────────────────────────────────────────────────────
     planning_launch = _inc(
         "anhc_planning",
         "anhc_planning.launch.py",
         {"algorithm": LaunchConfiguration("algorithm")},
+        condition=IfCondition(LaunchConfiguration("run_planning")),
     )
 
     # ── 4. RViz2 (conditional) ─────────────────────────────────────────────────
@@ -116,6 +168,7 @@ def generate_launch_description() -> LaunchDescription:
         executable="rviz2",
         name="rviz2",
         arguments=["-d", rviz_config],
+        parameters=[{"use_sim_time": True}],
         condition=IfCondition(LaunchConfiguration("use_rviz")),
         output="screen",
     )
@@ -133,6 +186,7 @@ def generate_launch_description() -> LaunchDescription:
         package="anhc_viz",
         executable="anhc_dashboard_panel",
         name="anhc_dashboard_panel",
+        parameters=[{"use_sim_time": True}],
         output="screen",
     )
 
@@ -140,9 +194,14 @@ def generate_launch_description() -> LaunchDescription:
         algorithm_arg,
         use_rviz_arg,
         run_benchmark_arg,
+        run_planning_arg,
         world_arg,
         gz_extra_args_arg,
         scenario_file_arg,
+        map_file_arg,
+        use_slam_arg,
+        use_office_v2_arg,
+        OpaqueFunction(function=_apply_office_v2_shorthand),
         sim_launch,
         perception_launch,
         planning_launch,

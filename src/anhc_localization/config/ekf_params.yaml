@@ -1,9 +1,13 @@
 ekf_filter_node:
   ros__parameters:
+    use_sim_time: true
     frequency: 30.0
     two_d_mode: true
     sensor_timeout: 0.1
     print_diagnostics: true
+    # Simulation publishes odom→base_footprint via anhc_odom_tf_node (from bridged /odom).
+    # Enabling EKF publish_tf would duplicate that transform and break SLAM / RViz.
+    publish_tf: false
 
     # Frames
     map_frame: map
