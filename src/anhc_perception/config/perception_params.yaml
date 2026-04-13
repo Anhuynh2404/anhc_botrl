@@ -1,5 +1,6 @@
 anhc_pointcloud_processor_node:
   ros__parameters:
+    use_sim_time: true
     voxel_leaf_size: 0.05
     passthrough_min_z: -0.1
     passthrough_max_z: 2.0
@@ -9,6 +10,7 @@ anhc_pointcloud_processor_node:
 
 anhc_obstacle_detector_node:
   ros__parameters:
+    use_sim_time: true
     dbscan_eps: 0.5
     dbscan_min_samples: 5
     max_obstacle_height: 1.5
@@ -16,7 +18,15 @@ anhc_obstacle_detector_node:
 
 anhc_camera_processor_node:
   ros__parameters:
+    use_sim_time: true
     canny_low: 50
     canny_high: 150
-    depth_obstacle_threshold: 1.5
+    # Practical stop distance for front depth obstacle check (meters).
+    depth_obstacle_threshold: 0.6
     blur_kernel: 5
+    startup_grace_sec: 3.0
+    # Require multiple close pixels to avoid constant false positives.
+    depth_min_obstacle_pixels: 50
+    exclude_ground_plane: true
+    # Ignore very small ranges that are often sensor noise.
+    min_valid_depth_m: 0.05

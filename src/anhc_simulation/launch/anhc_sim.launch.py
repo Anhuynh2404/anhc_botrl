@@ -1,10 +1,42 @@
+import os
+import subprocess
+import tempfile
+
+from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription, SetEnvironmentVariable
+from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription, OpaqueFunction, SetEnvironmentVariable
 from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import Command, LaunchConfiguration, PathJoinSubstitution
 from launch_ros.actions import Node
+from launch_ros.parameter_descriptions import ParameterValue
 from launch_ros.substitutions import FindPackageShare
+
+
+def _launch_joint_state_publisher(context):
+    """Jazzy ``joint_state_publisher`` does not load ``robot_description`` from parameters.
+
+    It only accepts a URDF path on the command line or ``std_msgs/String`` on the
+    ``robot_description`` topic. Passing ``ParameterValue(Command(xacro))`` via launch
+    therefore leaves ``free_joints`` empty and never publishes ``/joint_states``, which
+    breaks the TF tree and confuses slam_toolbox / RViz.
+    """
+    _ = context
+    share = get_package_share_directory("anhc_description")
+    xacro_path = os.path.join(share, "urdf", "anhc_bot.urdf.xacro")
+    urdf_xml = subprocess.check_output(["xacro", xacro_path], text=True)
+    fd, urdf_path = tempfile.mkstemp(prefix="anhc_bot_", suffix=".urdf")
+    with os.fdopen(fd, "w") as tmp:
+        tmp.write(urdf_xml)
+    return [
+        Node(
+            package="joint_state_publisher",
+            executable="joint_state_publisher",
+            arguments=[urdf_path],
+            parameters=[{"use_sim_time": True, "rate": 50}],
+            output="screen",
+        )
+    ]
 
 
 def generate_launch_description():
@@ -28,7 +60,16 @@ def generate_launch_description():
         [FindPackageShare("anhc_description"), "rviz", "anhc_bot.rviz"]
     )
 
-    robot_description = {"robot_description": Command(["xacro ", xacro_file])}
+    # joint_state_publisher (Jazzy) needs robot_description as a real string param;
+    # a bare Command() is not always coerced and the node then waits forever on the
+    # /robot_description topic → no /joint_states → incomplete TF → SLAM/RViz queues overflow.
+    robot_description = {
+        "robot_description": ParameterValue(
+            Command(["xacro ", xacro_file]),
+            value_type=str,
+        ),
+        "use_sim_time": True,
+    }
 
     gz_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
@@ -41,6 +82,7 @@ def generate_launch_description():
         launch_arguments={"gz_args": ["-r ", world_file, " ", LaunchConfiguration("gz_extra_args")]}.items(),
     )
 
+    # Entity name must match bridge_params.yaml gz_topic_name (/model/<name>/cmd_vel).
     spawn_entity = Node(
         package="ros_gz_sim",
         executable="create",
@@ -54,7 +96,7 @@ def generate_launch_description():
             "-y",
             "0.0",
             "-z",
-            "0.15",
+            "0.20",
             "-Y",
             "0.0",
         ],
@@ -89,72 +131,50 @@ def generate_launch_description():
                 parameters=[robot_description],
                 output="screen",
             ),
+            # Publish joint states for non-fixed joints (e.g. left/right wheels).
+            OpaqueFunction(function=_launch_joint_state_publisher),
+            Node(
+                package="anhc_simulation",
+                executable="anhc_cmd_vel_idle_gate.py",
+                name="anhc_cmd_vel_idle_gate",
+                parameters=[{"use_sim_time": True}],
+                output="screen",
+            ),
             Node(
                 package="ros_gz_bridge",
                 executable="parameter_bridge",
-                parameters=[{"config_file": bridge_config}],
+                parameters=[
+                    {"config_file": bridge_config, "use_sim_time": True},
+                ],
+                output="screen",
+            ),
+            Node(
+                package="anhc_simulation",
+                executable="anhc_odom_tf_node.py",
+                name="anhc_odom_tf_publisher",
+                parameters=[
+                    {"use_sim_time": True, "use_odometry_msg_stamp": True},
+                ],
+                output="screen",
+            ),
+            # Scan relay: /scan_gz -> /scan, header.frame_id only; odom TF from anhc_odom_tf_node.
+            Node(
+                package="anhc_simulation",
+                executable="anhc_scan_frame_relay.py",
+                name="anhc_scan_frame_relay",
+                parameters=[{"use_sim_time": True}],
                 output="screen",
             ),
             spawn_entity,
 
-            # ── Gazebo ↔ ROS frame-ID bridge (static transforms) ──────────────────
-            # Gazebo Harmonic flattens all fixed URDF joints into the root link
-            # (base_footprint) when building its internal model.  As a result,
-            # every sensor that was declared on a child fixed-link (lidar_link,
-            # camera_link, imu_link) gets a Gazebo scoped frame_id of the form:
-            #   {model_name}/{root_link}/{sensor_name}
-            # e.g. "anhc_bot/base_footprint/anhc_lidar"
-            #
-            # These Gazebo-style frame IDs do NOT appear in the ROS TF tree (which
-            # is published by robot_state_publisher using the original URDF link
-            # names).  The mismatch causes:
-            #   1. SLAM toolbox to fail silently (cannot look up scan frame → no map)
-            #   2. RViz "Could not transform … to [map]" errors for sensor displays
-            #
-            # Fix: publish identity static transforms connecting each Gazebo sensor
-            # frame to its corresponding URDF link.
+            # Gazebo scoped sensor frames → URDF names on /tf_static (stamp 0). Avoids
+            # C++ static_transform_publisher republishing on /tf with clock.now() ahead of
+            # bridged /odom stamps (tf2 "jump back in time" → buffer clear).
             Node(
-                package="tf2_ros",
-                executable="static_transform_publisher",
-                name="gz_lidar_frame_bridge",
-                arguments=[
-                    "0", "0", "0", "0", "0", "0",
-                    "lidar_link",                         # URDF frame (in TF tree)
-                    "anhc_bot/base_footprint/anhc_lidar", # Gazebo sensor frame
-                ],
-                output="screen",
-            ),
-            Node(
-                package="tf2_ros",
-                executable="static_transform_publisher",
-                name="gz_camera_rgb_frame_bridge",
-                arguments=[
-                    "0", "0", "0", "0", "0", "0",
-                    "camera_link",
-                    "anhc_bot/base_footprint/anhc_rgb_camera",
-                ],
-                output="screen",
-            ),
-            Node(
-                package="tf2_ros",
-                executable="static_transform_publisher",
-                name="gz_camera_depth_frame_bridge",
-                arguments=[
-                    "0", "0", "0", "0", "0", "0",
-                    "camera_link",
-                    "anhc_bot/base_footprint/anhc_depth_camera",
-                ],
-                output="screen",
-            ),
-            Node(
-                package="tf2_ros",
-                executable="static_transform_publisher",
-                name="gz_imu_frame_bridge",
-                arguments=[
-                    "0", "0", "0", "0", "0", "0",
-                    "imu_link",
-                    "anhc_bot/base_footprint/anhc_imu",
-                ],
+                package="anhc_simulation",
+                executable="anhc_gz_frame_static_tf.py",
+                name="anhc_gz_frame_static_bridges",
+                parameters=[{"use_sim_time": True}],
                 output="screen",
             ),
 
@@ -162,8 +182,10 @@ def generate_launch_description():
                 package="rviz2",
                 executable="rviz2",
                 arguments=["-d", rviz_config],
+                parameters=[{"use_sim_time": True}],
                 condition=IfCondition(use_rviz),
                 output="screen",
             ),
         ]
     )
+

@@ -1,0 +1,125 @@
+<?xml version="1.0" ?>
+<sdf version="1.10">
+  <world name="anhc_office_v2_world">
+    <gravity>0 0 -9.81</gravity>
+    <physics name="1ms" type="ode">
+      <max_step_size>0.001</max_step_size>
+      <real_time_factor>1.0</real_time_factor>
+      <real_time_update_rate>1000</real_time_update_rate>
+    </physics>
+
+    <plugin filename="gz-sim-physics-system" name="gz::sim::systems::Physics"/>
+    <plugin filename="gz-sim-user-commands-system" name="gz::sim::systems::UserCommands"/>
+    <plugin filename="gz-sim-scene-broadcaster-system" name="gz::sim::systems::SceneBroadcaster"/>
+    <plugin filename="gz-sim-sensors-system" name="gz::sim::systems::Sensors">
+      <render_engine>ogre</render_engine>
+    </plugin>
+    <plugin filename="gz-sim-imu-system" name="gz::sim::systems::Imu"/>
+
+    <light type="directional" name="sun">
+      <pose>0 0 10 0 0 0</pose>
+      <cast_shadows>true</cast_shadows>
+      <diffuse>0.75 0.75 0.75 1</diffuse>
+      <specular>0.15 0.15 0.15 1</specular>
+      <direction>-0.5 0.2 -1</direction>
+    </light>
+    <scene>
+      <!-- Reduce wash-out: STL has no materials so it can render very bright -->
+      <ambient>0.18 0.18 0.20 1</ambient>
+      <background>0.15 0.15 0.18 1</background>
+      <shadows>true</shadows>
+    </scene>
+
+    <model name="floor">
+      <static>true</static>
+      <link name="floor_link">
+        <collision name="collision">
+          <geometry>
+            <plane>
+              <normal>0 0 1</normal>
+              <size>100 100</size>
+            </plane>
+          </geometry>
+          <surface>
+            <friction>
+              <ode>
+                <mu>1.0</mu>
+                <mu2>1.0</mu2>
+              </ode>
+            </friction>
+          </surface>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <plane>
+              <normal>0 0 1</normal>
+              <size>100 100</size>
+            </plane>
+          </geometry>
+          <material>
+            <ambient>0.25 0.25 0.25 1</ambient>
+            <diffuse>0.35 0.35 0.35 1</diffuse>
+            <specular>0.02 0.02 0.02 1</specular>
+          </material>
+        </visual>
+      </link>
+      <pose>0 0 0 0 0 0</pose>
+    </model>
+
+    <model name="office_env">
+      <static>true</static>
+      <!-- NOTE: If the mesh appears rotated/offset in Gazebo, adjust this pose.
+           Determine the correct offset by loading office_v2.stl and noting where
+           the floor-level walls start relative to the world origin.
+           Final tuned pose should be documented here after first visual inspection. -->
+      <pose>0 0 0 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <mesh>
+              <uri>../models/office_v2.stl</uri>
+              <scale>1 1 1</scale>
+            </mesh>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <mesh>
+              <uri>../models/office_v2.stl</uri>
+              <scale>1 1 1</scale>
+            </mesh>
+          </geometry>
+          <!-- STL has no embedded materials; set a neutral gray to avoid blinding white -->
+          <material>
+            <ambient>0.22 0.22 0.24 1</ambient>
+            <diffuse>0.55 0.55 0.58 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- Start waypoint (green cylinder). Default origin (0,0) — refine after map inspection. -->
+    <model name="start_waypoint">
+      <static>true</static>
+      <pose>0 0 0.15 0 0 0</pose>
+      <link name="link">
+        <visual name="v">
+          <geometry><cylinder><radius>0.25</radius><length>0.3</length></cylinder></geometry>
+          <material><ambient>0 1 0 1</ambient><diffuse>0 1 0 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+    <!-- Goal waypoint (red cylinder). Default (5,5) — refine after map inspection. -->
+    <model name="goal_waypoint">
+      <static>true</static>
+      <pose>5 5 0.15 0 0 0</pose>
+      <link name="link">
+        <visual name="v">
+          <geometry><cylinder><radius>0.25</radius><length>0.3</length></cylinder></geometry>
+          <material><ambient>1 0 0 1</ambient><diffuse>1 0 0 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+  </world>
+</sdf>

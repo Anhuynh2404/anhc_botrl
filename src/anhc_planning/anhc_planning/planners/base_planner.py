@@ -1,6 +1,7 @@
 """Abstract base class for all path planners in the anhc_planning framework."""
 
 import math
+from collections import deque
 from abc import ABC, abstractmethod
 from typing import Dict, List, Optional, Tuple
 
@@ -107,6 +108,7 @@ class BasePlanner(ABC):
         width: int,
         data: List[int],
         obstacle_threshold: int = 65,
+        allow_unknown: bool = True,
     ) -> bool:
         """Return True if the cell is within bounds and below the obstacle threshold.
 
@@ -125,7 +127,7 @@ class BasePlanner(ABC):
             return False
         cost = data[row * width + col]
         if cost < 0:
-            return False
+            return allow_unknown
         return cost < obstacle_threshold
 
     @staticmethod
@@ -136,9 +138,14 @@ class BasePlanner(ABC):
         origin_y: float,
         resolution: float,
     ) -> Tuple[int, int]:
-        """Convert map-frame (x, y) metres to (row, col) grid indices."""
-        col = int((x - origin_x) / resolution)
-        row = int((y - origin_y) / resolution)
+        """Convert map-frame (x, y) metres to (row, col) grid indices.
+
+        Row-major OccupancyGrid indexing uses ``index = row * width + col`` with
+        ``col`` along map +x and ``row`` along map +y. Use ``floor`` so negative
+        coordinates and cell boundaries match map_server / RViz.
+        """
+        col = int(math.floor((x - origin_x) / resolution))
+        row = int(math.floor((y - origin_y) / resolution))
         return (row, col)
 
     @staticmethod
@@ -157,32 +164,29 @@ class BasePlanner(ABC):
     @staticmethod
     def smooth_path(
         path: List[Tuple[float, float]],
-        window: int = 3,
+        data_weight: float = 0.5,
+        smooth_weight: float = 0.3,
+        tolerance: float = 1e-6,
+        min_waypoints: int = 5,
     ) -> List[Tuple[float, float]]:
-        """Apply a simple moving-average smoother to a (x, y) waypoint list.
-
-        Endpoints are preserved; interior points are averaged over *window*
-        neighbours.
-
-        Parameters
-        ----------
-        path:
-            Input waypoints in map-frame metres.
-        window:
-            Number of samples for the moving average (must be odd ≥ 1).
-        """
-        if len(path) <= 2 or window <= 1:
+        """Gradient-descent path smoothing while preserving endpoints."""
+        if len(path) < max(3, min_waypoints):
             return path
-        half = window // 2
-        smoothed: List[Tuple[float, float]] = [path[0]]
-        for i in range(1, len(path) - 1):
-            lo = max(0, i - half)
-            hi = min(len(path), i + half + 1)
-            xs = [p[0] for p in path[lo:hi]]
-            ys = [p[1] for p in path[lo:hi]]
-            smoothed.append((sum(xs) / len(xs), sum(ys) / len(ys)))
-        smoothed.append(path[-1])
-        return smoothed
+        smoothed = [list(p) for p in path]
+        change = tolerance + 1.0
+        while change > tolerance:
+            change = 0.0
+            for i in range(1, len(smoothed) - 1):
+                for j in range(2):
+                    old = smoothed[i][j]
+                    smoothed[i][j] += data_weight * (path[i][j] - smoothed[i][j])
+                    smoothed[i][j] += smooth_weight * (
+                        smoothed[i - 1][j]
+                        + smoothed[i + 1][j]
+                        - 2.0 * smoothed[i][j]
+                    )
+                    change += abs(old - smoothed[i][j])
+        return [tuple(p) for p in smoothed]
 
     @staticmethod
     def path_length(path: List[Tuple[float, float]]) -> float:
@@ -193,3 +197,48 @@ class BasePlanner(ABC):
             dy = path[i][1] - path[i - 1][1]
             total += math.sqrt(dx * dx + dy * dy)
         return total
+
+    @staticmethod
+    def nearest_valid_cell(
+        start: Tuple[int, int],
+        height: int,
+        width: int,
+        data: List[int],
+        obstacle_threshold: int = 65,
+        max_radius_cells: int = 50,
+    ) -> Optional[Tuple[int, int]]:
+        """Find nearest valid cell around start using bounded BFS.
+
+        Returns None if no valid cell is found within max_radius_cells.
+        """
+        sr, sc = start
+        if BasePlanner.is_valid_cell(
+            sr, sc, height, width, data, obstacle_threshold
+        ):
+            return start
+
+        q = deque([(sr, sc, 0)])
+        visited = {(sr, sc)}
+        neigh = [(-1, 0), (1, 0), (0, -1), (0, 1)]
+
+        while q:
+            r, c, d = q.popleft()
+            if d >= max_radius_cells:
+                continue
+
+            for dr, dc in neigh:
+                nr, nc = r + dr, c + dc
+                if (nr, nc) in visited:
+                    continue
+                visited.add((nr, nc))
+
+                if nr < 0 or nr >= height or nc < 0 or nc >= width:
+                    continue
+
+                if BasePlanner.is_valid_cell(
+                    nr, nc, height, width, data, obstacle_threshold
+                ):
+                    return (nr, nc)
+                q.append((nr, nc, d + 1))
+
+        return None
