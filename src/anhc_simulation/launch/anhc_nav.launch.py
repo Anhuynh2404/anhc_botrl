@@ -194,6 +194,22 @@ def _localization_and_lifecycle(context):
     ]
 
 
+def _gz_set_pose_service_bridge(context):
+    """Expose Gazebo ``/world/<name>/set_pose`` on ROS so ``anhc_initialpose_to_gz`` works."""
+    world = context.perform_substitution(LaunchConfiguration("gz_world_name"))
+    arg = f"/world/{world}/set_pose@ros_gz_interfaces/srv/SetEntityPose"
+    return [
+        Node(
+            package="ros_gz_bridge",
+            executable="parameter_bridge",
+            name="gz_set_pose_bridge",
+            arguments=[arg],
+            parameters=[{"use_sim_time": True}],
+            output="screen",
+        )
+    ]
+
+
 def generate_launch_description() -> LaunchDescription:
     default_map = PathJoinSubstitution(
         [FindPackageShare("anhc_simulation"), "maps", "anhc_indoor_map.yaml"]
@@ -267,6 +283,7 @@ def generate_launch_description() -> LaunchDescription:
                 description="Must stay false for bundled slam_toolbox launch pattern.",
             ),
             sim_launch,
+            OpaqueFunction(function=_gz_set_pose_service_bridge),
             Node(
                 package="anhc_simulation",
                 executable="anhc_initialpose_to_gz.py",

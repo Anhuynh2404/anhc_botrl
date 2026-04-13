@@ -16,19 +16,22 @@ anhc_global_planner:
 anhc_path_follower:
   ros__parameters:
     use_sim_time: true
+    control_frequency: 20.0
     max_linear_speed: 1.0
     min_linear_speed: 0.12
     max_angular_speed: 1.6
     lookahead_distance: 0.55
     goal_tolerance_m: 0.15
-    curvature_slowdown_gain: 0.8
-    rotate_in_place_angle_rad: 1.0
-    rotate_in_place_angular_speed: 0.8
+    # Lower = less linear slowdown in curves (path follower uses this, not a hardcoded 0.5).
+    curvature_slowdown_gain: 0.35
+    rotate_in_place_angle_rad: 0.85
+    rotate_in_place_angular_speed: 1.35
     max_linear_accel: 1.2
     max_angular_accel: 3.0
-    path_lost_threshold: 0.85
-    cmd_smoothing_alpha: 0.55
+    # Localization error can exceed 0.85 m; too low → constant "path lost" and no motion.
+    path_lost_threshold: 2.5
+    cmd_smoothing_alpha: 0.75
     angular_Kp: 1.2
     angular_Ki: 0.02
     angular_Kd: 0.08
-    transform_timeout: 0.35
+    transform_timeout: 0.55
