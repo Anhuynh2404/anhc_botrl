@@ -2,8 +2,13 @@ anhc_global_planner:
   ros__parameters:
     use_sim_time: true
     algorithm: "astar"
-    # map_server uses 0 / 100 / -1; global costmap uses lethal 100 and 1–99 inflation.
-    obstacle_cost_threshold: 100
+    # obstacle_cost_threshold options (matches banded costmap values):
+    #   100 → robot passes through all cost zones (hugs walls)
+    #    75 → robot avoids inscribed zone (cost≥75, ≤robot_radius+band_1)
+    #    55 → robot avoids caution zone (cost≥55, recommended default — ≥band_2 clearance)
+    #    35 → robot keeps large clearance (avoids mild zone, ≥band_3)
+    #    15 → robot keeps maximum clearance (avoids all coloured cells)
+    obstacle_cost_threshold: 55
     path_smooth_data_weight: 0.65
     path_smooth_smooth_weight: 0.12
     path_smooth_min_waypoints: 5

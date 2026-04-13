@@ -92,10 +92,13 @@ class AnhcGlobalPlannerNode(Node):
         )
         self.declare_parameter(
             "obstacle_cost_threshold",
-            100,
+            55,
             ParameterDescriptor(
                 type=ParameterType.PARAMETER_INTEGER,
-                description="Cells with cost >= threshold are lethal (map 0–100; costmap lethal 100).",
+                description=(
+                    "Cells with cost >= threshold are treated as obstacles. "
+                    "55 = avoids caution zone (cost≥55), giving ≥inflation_band_2 clearance from walls."
+                ),
             ),
         )
         self.declare_parameter("path_smooth_data_weight", 0.5)

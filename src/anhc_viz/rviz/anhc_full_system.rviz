@@ -120,7 +120,7 @@ Visualization Manager:
       Use Timestamp: false
       Value: true
 
-    - Alpha: 0.6
+    - Alpha: 0.65
       Class: rviz_default_plugins/Map
       Color Scheme: costmap
       Draw Behind: false
@@ -128,7 +128,7 @@ Visualization Manager:
       Name: Costmap (global)
       Topic:
         Depth: 1
-        Durability Policy: Volatile
+        Durability Policy: Transient Local
         History Policy: Keep Last
         Reliability Policy: Reliable
         Value: /costmap/global

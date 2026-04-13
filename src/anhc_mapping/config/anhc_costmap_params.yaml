@@ -1,3 +1,13 @@
+anhc_global_costmap_node:
+  ros__parameters:
+    robot_radius: 0.30
+    inflation_band_1: 0.45
+    inflation_band_2: 0.70
+    inflation_band_3: 1.00
+    inflation_band_4: 1.40
+    use_discrete_bands: true
+    cost_scaling_factor: 3.0
+
 global_costmap:
   global_costmap:
     ros__parameters:
