@@ -73,7 +73,11 @@ class InitialPoseToGz(Node):
         except Exception as e:
             self.get_logger().error(f"set_pose failed: {e}")
             return
-        if not ok:
+        if ok:
+            self.get_logger().info(
+                f"Gazebo teleport OK for model {self._model!r}"
+            )
+        else:
             self.get_logger().warn("set_pose returned success=false")
 
 

@@ -14,8 +14,22 @@ from geometry_msgs.msg import PointStamped, Twist
 from nav_msgs.msg import Odometry, Path
 from rclpy.duration import Duration
 from rclpy.node import Node
+from rclpy.qos import (
+    DurabilityPolicy,
+    HistoryPolicy,
+    QoSProfile,
+    ReliabilityPolicy,
+)
 from std_msgs.msg import Bool, Float32
 from tf2_ros import ExtrapolationException, LookupException, TransformException
+
+# Match anhc_cmd_vel_idle_gate + ros_gz_bridge (reliable, sufficient depth).
+_CMD_VEL_QOS = QoSProfile(
+    reliability=ReliabilityPolicy.RELIABLE,
+    durability=DurabilityPolicy.VOLATILE,
+    history=HistoryPolicy.KEEP_LAST,
+    depth=50,
+)
 
 
 class AnhcPathFollowerNode(Node):
@@ -38,6 +52,7 @@ class AnhcPathFollowerNode(Node):
         self.declare_parameter("angular_Ki", 0.02)
         self.declare_parameter("angular_Kd", 0.08)
         self.declare_parameter("transform_timeout", 0.35)
+        self.declare_parameter("control_frequency", 20.0)
 
         self._path: list[tuple[float, float]] = []
         self._path_frame: str = "map"
@@ -61,7 +76,7 @@ class AnhcPathFollowerNode(Node):
         self.create_subscription(Odometry, "/odometry/filtered", self._cb_odom, 10)
         self.create_subscription(Bool, "/perception/depth_obstacles", self._cb_obstacle, 10)
 
-        self._pub_cmd = self.create_publisher(Twist, "/cmd_vel", 10)
+        self._pub_cmd = self.create_publisher(Twist, "/cmd_vel", _CMD_VEL_QOS)
         self._pub_replan = self.create_publisher(Bool, "/planning/replan_request", 10)
         self._pub_lookahead = self.create_publisher(
             PointStamped, "/planning/debug/lookahead_point", 10
@@ -73,10 +88,15 @@ class AnhcPathFollowerNode(Node):
             Float32, "/planning/debug/pid_output", 10
         )
 
-        self._control_dt = 0.05
+        freq = float(
+            self.get_parameter("control_frequency").get_parameter_value().double_value
+        )
+        self._control_dt = 1.0 / max(freq, 1.0)
         self._timer = self.create_timer(self._control_dt, self._control_loop)
 
-        self.get_logger().info("[anhc_path_follower] started")
+        self.get_logger().info(
+            f"[anhc_path_follower] started (dt={self._control_dt:.4f}s)"
+        )
 
     def _cb_path(self, msg: Path) -> None:
         self._path = [
@@ -141,6 +161,7 @@ class AnhcPathFollowerNode(Node):
             self.get_parameter("lookahead_distance").get_parameter_value().double_value
         )
         lookahead_idx = self._lookahead_index(path_robot, closest_idx, lookahead_m)
+        lookahead_idx = self._ensure_lookahead_ahead(path_robot, lookahead_idx)
         lx, ly = path_robot[lookahead_idx]
         lookahead_map_x, lookahead_map_y = path_map[lookahead_idx]
 
@@ -173,18 +194,36 @@ class AnhcPathFollowerNode(Node):
         max_w = float(
             self.get_parameter("max_angular_speed").get_parameter_value().double_value
         )
+        csg = float(
+            self.get_parameter("curvature_slowdown_gain").get_parameter_value().double_value
+        )
+        csg = max(0.0, min(csg, 2.0))
+        rip_rad = float(
+            self.get_parameter("rotate_in_place_angle_rad").get_parameter_value().double_value
+        )
+        rip_w = float(
+            self.get_parameter("rotate_in_place_angular_speed").get_parameter_value().double_value
+        )
+        rip_w = min(rip_w, max_w)
         alpha = float(
             self.get_parameter("cmd_smoothing_alpha").get_parameter_value().double_value
         )
         alpha = max(0.0, min(1.0, alpha))
 
-        denom = max(lookahead_m * lookahead_m, 1e-6)
-        kappa = 2.0 * ly / denom
-
-        linear_vel = self._clamp(
-            max_v * (1.0 - abs(kappa) * 0.5), min_v, max_v
-        )
-        target_angular = self._clamp(linear_vel * kappa, -max_w, max_w)
+        heading_to_la = math.atan2(ly, lx)
+        if abs(heading_to_la) > rip_rad:
+            # Face the lookahead before driving; avoids crawling forward while fighting lateral error.
+            linear_vel = 0.0
+            k_head = 2.2
+            target_angular = self._clamp(
+                k_head * heading_to_la, -rip_w, rip_w
+            )
+        else:
+            denom = max(lookahead_m * lookahead_m, 1e-6)
+            kappa = 2.0 * ly / denom
+            linear_vel = max_v * (1.0 - abs(kappa) * csg)
+            linear_vel = self._clamp(linear_vel, min_v, max_v)
+            target_angular = self._clamp(linear_vel * kappa, -max_w, max_w)
 
         kp = float(self.get_parameter("angular_Kp").get_parameter_value().double_value)
         ki = float(self.get_parameter("angular_Ki").get_parameter_value().double_value)
@@ -287,6 +326,22 @@ class AnhcPathFollowerNode(Node):
             if math.hypot(x, y) >= lookahead:
                 return i
         return len(path_robot) - 1
+
+    @staticmethod
+    def _ensure_lookahead_ahead(
+        path_robot: list[tuple[float, float]],
+        idx: int,
+        ahead_eps: float = 0.12,
+    ) -> int:
+        """Advance along the path if the chosen lookahead is behind the robot (xr < 0).
+
+        Pure pursuit can otherwise pick a waypoint with negative ``x`` in the base frame
+        (still beyond ``lookahead`` distance), yielding heading ≈ ±π and poor motion.
+        """
+        i = idx
+        while i < len(path_robot) - 1 and path_robot[i][0] < ahead_eps:
+            i += 1
+        return i
 
     @staticmethod
     def _cross_track_error(

@@ -98,13 +98,14 @@
       <right_joint>right_wheel_joint</right_joint>
       <wheel_separation>0.42</wheel_separation>
       <wheel_radius>0.08</wheel_radius>
-      <max_linear_velocity>0.35</max_linear_velocity>
-      <max_angular_velocity>0.9</max_angular_velocity>
-      <max_linear_acceleration>0.8</max_linear_acceleration>
-      <max_angular_acceleration>1.8</max_angular_acceleration>
+      <!-- Match path_follower caps (~1 m/s linear, ~1.6 rad/s); previous 0.35 m/s capped all motion. -->
+      <max_linear_velocity>1.35</max_linear_velocity>
+      <max_angular_velocity>2.0</max_angular_velocity>
+      <max_linear_acceleration>2.5</max_linear_acceleration>
+      <max_angular_acceleration>4.0</max_angular_acceleration>
       <!-- Symmetric limits; gz-sim8 DiffDrive ignores cmd_vel_timeout (not in plugin). -->
-      <min_linear_velocity>-0.35</min_linear_velocity>
-      <min_angular_velocity>-0.9</min_angular_velocity>
+      <min_linear_velocity>-1.35</min_linear_velocity>
+      <min_angular_velocity>-2.0</min_angular_velocity>
       <!-- Omit <topic>: DiffDrive defaults to /model/<model_name>/cmd_vel (Harmonic/Garden).
            A bare /cmd_vel + ros_gz_bridge often does not reach the plugin transport scope. -->
       <!-- gz-sim8 DiffDrive still publishes odometry even if <publish_odom> is set; that tag is not
