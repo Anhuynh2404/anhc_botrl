@@ -27,6 +27,8 @@ install(
   scripts/anhc_odom_tf_node.py
   scripts/anhc_cmd_vel_idle_gate.py
   scripts/anhc_gz_frame_static_tf.py
+  scripts/anhc_initialpose_odom_stamp.py
+  scripts/anhc_initialpose_to_gz.py
   DESTINATION lib/${PROJECT_NAME}
 )
 

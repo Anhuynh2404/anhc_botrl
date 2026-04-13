@@ -20,7 +20,7 @@ _NEIGHBOURS = [
     ( 1,  1, 1.4142),
 ]
 
-_OBSTACLE_THRESHOLD = 253
+_OBSTACLE_THRESHOLD = 100
 _COST_SCALE = 1.0 / 50.0
 
 
@@ -105,14 +105,24 @@ class DijkstraPlanner(BasePlanner):
         if not self.is_valid_cell(
             start_cell[0], start_cell[1], height, width, data, self._obstacle_threshold
         ):
-            self._record_stats(0, time.monotonic() - t0, 0.0)
-            return []
+            snapped_start = self.nearest_valid_cell(
+                start_cell, height, width, data, self._obstacle_threshold
+            )
+            if snapped_start is None:
+                self._record_stats(0, time.monotonic() - t0, 0.0)
+                return []
+            start_cell = snapped_start
 
         if not self.is_valid_cell(
             goal_cell[0], goal_cell[1], height, width, data, self._obstacle_threshold
         ):
-            self._record_stats(0, time.monotonic() - t0, 0.0)
-            return []
+            snapped_goal = self.nearest_valid_cell(
+                goal_cell, height, width, data, self._obstacle_threshold
+            )
+            if snapped_goal is None:
+                self._record_stats(0, time.monotonic() - t0, 0.0)
+                return []
+            goal_cell = snapped_goal
 
         # open heap: (g, (row, col))  — no heuristic term
         open_heap: List[Tuple[float, Tuple[int, int]]] = []
