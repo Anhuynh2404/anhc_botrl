@@ -40,6 +40,19 @@ def _launch_joint_state_publisher(context):
 
 
 def generate_launch_description():
+    # Gazebo Harmonic converts package:// URIs to model:// when parsing URDF→SDF.
+    # GZ_SIM_RESOURCE_PATH must contain the parent of the package share directory
+    # (i.e. install/share) so Gazebo can resolve model://anhc_description/meshes/...
+    _pkg_share = get_package_share_directory("anhc_description")
+    _gz_extra_path = os.path.dirname(_pkg_share)  # install/share → resolves model://anhc_description/...
+    # Also add the obj/ texture directory so OGRE2 can resolve map_Kd PNG paths from MTL files.
+    _obj_tex_path = os.path.join(_pkg_share, "meshes", "anhc_botrl", "visual", "obj")
+    _existing_gz_path = os.environ.get("GZ_SIM_RESOURCE_PATH", "")
+    _gz_resource_path = (
+        _gz_extra_path + ":" + _obj_tex_path
+        + (":" + _existing_gz_path if _existing_gz_path else "")
+    )
+
     # Use "sim_use_rviz" rather than "use_rviz" to avoid clobbering the
     # parent launch's "use_rviz" flag when included via IncludeLaunchDescription.
     # ROS2 launch shares LaunchConfiguration values globally across all included
@@ -124,6 +137,9 @@ def generate_launch_description():
             ),
             # Avoid FastDDS SHM init failures on some host setups.
             SetEnvironmentVariable("FASTDDS_BUILTIN_TRANSPORTS", "UDPv4"),
+            # Allow Gazebo to resolve model://anhc_description/meshes/... URIs
+            # (package:// is converted to model:// during URDF→SDF parsing).
+            SetEnvironmentVariable("GZ_SIM_RESOURCE_PATH", _gz_resource_path),
             gz_launch,
             Node(
                 package="robot_state_publisher",
@@ -188,6 +204,10 @@ def generate_launch_description():
             ),
         ]
     )
+
+
+
+
 
 
 

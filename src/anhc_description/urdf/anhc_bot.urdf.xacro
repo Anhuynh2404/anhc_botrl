@@ -1,15 +1,14 @@
 <?xml version="1.0"?>
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="anhc_bot">
-  <xacro:property name="chassis_length" value="0.5"/>
-  <xacro:property name="chassis_width" value="0.4"/>
-  <xacro:property name="chassis_height" value="0.25"/>
-  <xacro:property name="wheel_radius" value="0.08"/>
-  <xacro:property name="wheel_width" value="0.04"/>
+  <xacro:property name="chassis_length" value="0.8"/>
+  <xacro:property name="chassis_width"  value="0.8"/>
+  <xacro:property name="chassis_height" value="0.6"/>
+  <xacro:property name="wheel_radius"   value="0.08"/>
+  <xacro:property name="wheel_width"    value="0.08"/>
   <xacro:property name="wheel_x" value="0.15"/>
   <xacro:property name="wheel_y" value="0.21"/>
   <xacro:property name="chassis_mass" value="20.0"/>
   <xacro:property name="wheel_mass" value="1.2"/>
-  <xacro:property name="caster_mass" value="0.5"/>
 
   <link name="base_footprint"/>
 
@@ -19,14 +18,14 @@
       <mass value="${chassis_mass}"/>
       <inertia ixx="0.433" ixy="0.0" ixz="0.0" iyy="0.563" iyz="0.0" izz="0.683"/>
     </inertial>
+    <!-- OBJ from Blender in metres; scale = 1 1 1. MTL auto-loaded by matching base name. -->
+    <!-- xyz offsets the mesh so its geometric centre aligns with the base_link frame origin. -->
     <visual>
-      <origin xyz="0 0 ${chassis_height/2.0}" rpy="0 0 0"/>
+      <origin xyz="0.9 0 0.06" rpy="1.5708 0 0"/>
       <geometry>
-        <box size="${chassis_length} ${chassis_width} ${chassis_height}"/>
+        <mesh filename="package://anhc_description/meshes/anhc_botrl/visual/obj/baselink.obj"
+              scale="1 1 1"/>
       </geometry>
-      <material name="dark_gray">
-        <color rgba="0.25 0.25 0.28 1.0"/>
-      </material>
     </visual>
     <collision>
       <origin xyz="0 0 ${chassis_height/2.0}" rpy="0 0 0"/>
@@ -42,21 +41,23 @@
     <origin xyz="0 0 0" rpy="0 0 0"/>
   </joint>
 
-  <xacro:macro name="wheel_link" params="name x y">
+  <!-- mesh_file: OBJ filename under meshes/anhc_botrl/visual/obj/ -->
+  <!-- vis_x/y/z: visual origin offset in link frame (forward / left-right / up-down).       -->
+  <!-- vis_rpy:   visual rotation; default +90° roll. Use -1.5708 0 0 to flip inner/outer.  -->
+  <xacro:macro name="wheel_link" params="name x y mesh_file vis_x vis_y vis_z vis_rpy:='1.5708 0 0'">
     <link name="${name}">
       <inertial>
         <origin xyz="0 0 0" rpy="0 0 0"/>
         <mass value="${wheel_mass}"/>
         <inertia ixx="0.0022" ixy="0.0" ixz="0.0" iyy="0.0040" iyz="0.0" izz="0.0022"/>
       </inertial>
+      <!-- OBJ from Blender in metres; scale = 1 1 1. MTL auto-loaded by matching base name. -->
       <visual>
-        <origin xyz="0 0 0" rpy="1.5708 0 0"/>
+        <origin xyz="${vis_x} ${vis_y} ${vis_z}" rpy="${vis_rpy}"/>
         <geometry>
-          <cylinder radius="${wheel_radius}" length="${wheel_width}"/>
+          <mesh filename="package://anhc_description/meshes/anhc_botrl/visual/obj/${mesh_file}"
+                scale="1 1 1"/>
         </geometry>
-        <material name="black">
-          <color rgba="0.05 0.05 0.05 1.0"/>
-        </material>
       </visual>
       <collision>
         <origin xyz="0 0 0" rpy="1.5708 0 0"/>
@@ -75,36 +76,16 @@
     </joint>
   </xacro:macro>
 
-  <xacro:wheel_link name="left_wheel" x="${wheel_x}" y="${wheel_y}"/>
-  <xacro:wheel_link name="right_wheel" x="${wheel_x}" y="-${wheel_y}"/>
+  <!-- Front wheels (powered, drive wheels) -->
+  <xacro:wheel_link name="front_left_wheel"  x="${wheel_x}"                    y="${wheel_y}"  mesh_file="front_left_wheel.obj"  vis_x="-0.0085" vis_y="0.0781"  vis_z="-0.0921"/>
+  <!-- vis_y/z computed for exact mirror symmetry with front_left (center_y=-0.05, center_z=-0.02) -->
+  <xacro:wheel_link name="front_right_wheel" x="${wheel_x}"                    y="-${wheel_y}" mesh_file="back_right_wheel.obj"  vis_x="-0.22" vis_y="0.1964"  vis_z="0.0542"  vis_rpy="-1.5708 0 0"/>
 
-  <xacro:macro name="caster_wheel" params="name x y">
-    <link name="${name}">
-      <inertial>
-        <origin xyz="0 0 0" rpy="0 0 0"/>
-        <mass value="${caster_mass}"/>
-        <inertia ixx="0.0007" ixy="0.0" ixz="0.0" iyy="0.0009" iyz="0.0" izz="0.0007"/>
-      </inertial>
-      <visual>
-        <origin xyz="0 0 0" rpy="1.5708 0 0"/>
-        <geometry>
-          <sphere radius="0.04"/>
-        </geometry>
-        <material name="silver">
-          <color rgba="0.7 0.7 0.75 1.0"/>
-        </material>
-      </visual>
-      <!-- No collision: passive casters + Gazebo contact solver often inject yaw torque. -->
-    </link>
-    <joint name="${name}_joint" type="fixed">
-      <parent link="base_link"/>
-      <child link="${name}"/>
-      <origin xyz="${x} ${y} 0.04" rpy="0 0 0"/>
-    </joint>
-  </xacro:macro>
-
-  <xacro:caster_wheel name="rear_left_caster" x="-0.18" y="0.16"/>
-  <xacro:caster_wheel name="rear_right_caster" x="-0.18" y="-0.16"/>
+  <!-- Rear wheels — same joint type (continuous), driven passively via physics -->
+  <!-- back_left: vis_x +0.04 (≈ half wheel width forward) -->
+  <xacro:wheel_link name="back_left_wheel"   x="-${chassis_length/2.0 - 0.05}" y="${wheel_y}"  mesh_file="back_left_wheel.obj"   vis_x="0.12"    vis_y="0.0655"  vis_z="-0.0986"/>
+  <!-- vis_y/z computed for exact mirror symmetry with back_left (center_y=-0.05, center_z=-0.021) -->
+  <xacro:wheel_link name="back_right_wheel"  x="-${chassis_length/2.0 - 0.05}" y="-${wheel_y}" mesh_file="front_right_wheel.obj" vis_x="0.50"    vis_y="0.0234"  vis_z="-0.0782"/>
 
   <link name="lidar_link">
     <inertial>
@@ -112,17 +93,20 @@
       <mass value="0.25"/>
       <inertia ixx="0.0004" ixy="0.0" ixz="0.0" iyy="0.0004" iyz="0.0" izz="0.0005"/>
     </inertial>
+    <!-- OBJ from Blender in metres; scale = 1 1 1. MTL auto-loaded by matching base name. -->
     <visual>
-      <origin xyz="0 0 0" rpy="0 0 0"/>
-      <geometry><cylinder radius="0.04" length="0.05"/></geometry>
-      <material name="blue"><color rgba="0.2 0.2 0.9 1.0"/></material>
+      <origin xyz="0.0132 0.0205 0.0000" rpy="1.5708 0 3.14159"/>
+      <geometry>
+        <mesh filename="package://anhc_description/meshes/anhc_botrl/visual/obj/lidar.obj"
+              scale="1 1 1"/>
+      </geometry>
     </visual>
     <!-- No collision: avoid spurious contacts with world mesh; lidar is not physical. -->
   </link>
   <joint name="lidar_joint" type="fixed">
     <parent link="base_link"/>
     <child link="lidar_link"/>
-    <origin xyz="0 0 0.30" rpy="0 0 0"/>
+    <origin xyz="0.1 0 0.4" rpy="0 0 0"/>
   </joint>
 
   <link name="camera_link">
@@ -131,10 +115,13 @@
       <mass value="0.35"/>
       <inertia ixx="0.0009" ixy="0.0" ixz="0.0" iyy="0.0010" iyz="0.0" izz="0.0008"/>
     </inertial>
+    <!-- OBJ from Blender in metres; scale = 1 1 1. MTL auto-loaded by matching base name. -->
     <visual>
-      <origin xyz="0 0 0" rpy="0 0 0"/>
-      <geometry><box size="0.08 0.06 0.05"/></geometry>
-      <material name="navy"><color rgba="0.1 0.1 0.5 1.0"/></material>
+      <origin xyz="0.0133 0.0128 0.0000" rpy="1.5708 0 0"/>
+      <geometry>
+        <mesh filename="package://anhc_description/meshes/anhc_botrl/visual/obj/camera.obj"
+              scale="1 1 1"/>
+      </geometry>
     </visual>
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0"/>
@@ -144,7 +131,7 @@
   <joint name="camera_joint" type="fixed">
     <parent link="base_link"/>
     <child link="camera_link"/>
-    <origin xyz="0.22 0 0.20" rpy="0 0.1745 0"/>
+    <origin xyz="0.22 0 0.7" rpy="0 0 0"/>
   </joint>
 
   <link name="imu_link">

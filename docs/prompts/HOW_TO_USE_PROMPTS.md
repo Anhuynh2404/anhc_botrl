@@ -9,6 +9,7 @@
 | `phase_03_benchmark_metrics.md` | Benchmark đầy đủ 6 nhóm metric + biểu đồ so sánh | Phase 1 + Phase 2 |
 | `phase_04_office_v2_map.md` | Tích hợp map mới `office_v2.stl` | Không có |
 | `phase_05_dashboard_viz.md` | Dashboard & visualization nâng cao | Phase 1 + 2 + 3 + 4 |
+| `phase_06_robot_visual_4wheel.md` | Thay vỏ robot bằng mesh STL + chuyển từ 2 bánh + 2 caster sang 4 bánh thực | Không có |
 
 ---
 

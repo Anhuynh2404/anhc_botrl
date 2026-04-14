@@ -59,12 +59,33 @@ ros2 launch anhc_simulation anhc_nav.launch.py \
 ## Bước 5 — Switch thuật toán không cần restart
 
 ```bash
-# Switch sang Dijkstra
+source ~/anhc_botrl/install/setup.bash
+
+# A* (đã hoạt động trước)
+ros2 param set /anhc_global_planner algorithm astar
+
+# Dijkstra
 ros2 param set /anhc_global_planner algorithm dijkstra
 
-# Switch về A*
-ros2 param set /anhc_global_planner algorithm astar
+# Theta* — any-angle, đường thẳng hơn A*
+ros2 param set /anhc_global_planner algorithm theta_star
+
+# Greedy BFS — nhanh nhất, không tối ưu
+ros2 param set /anhc_global_planner algorithm greedy_bfs
+
+# Jump Point Search — nhanh, lưới đồng nhất
+ros2 param set /anhc_global_planner algorithm jps
+
+# RRT* — sampling-based, phù hợp không gian rộng
+ros2 param set /anhc_global_planner algorithm rrt_star
+
+# D* Lite — incremental replanning
+ros2 param set /anhc_global_planner algorithm dstar_lite
+
+# PRM — roadmap xác suất
+ros2 param set /anhc_global_planner algorithm prm
 ```
+ros2 param get /anhc_global_planner algorithm
 
 Gửi goal mới sau khi switch (ví dụ dùng lại **2D Goal Pose** trong RViz2).
 
