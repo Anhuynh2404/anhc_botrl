@@ -21,9 +21,6 @@ Usage examples
   ros2 launch anhc_simulation anhc_master.launch.py world:=anhc_outdoor
 """
 
-import os
-
-from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import (
     DeclareLaunchArgument,
@@ -39,14 +36,13 @@ from launch_ros.substitutions import FindPackageShare
 
 
 def _apply_office_v2_shorthand(context):
-    """When use_office_v2:=true, override 'world' and 'map_file' for office_v2."""
+    """When use_office_v2:=true, force world and SLAM mode for office_v2."""
     if context.perform_substitution(LaunchConfiguration("use_office_v2")) != "true":
         return []
-    share = get_package_share_directory("anhc_simulation")
-    map_path = os.path.join(share, "maps", "anhc_office_v2_map.yaml")
     return [
         SetLaunchConfiguration("world", "anhc_office_v2"),
-        SetLaunchConfiguration("map_file", map_path),
+        # office_v2 is treated as a fresh environment: build map with SLAM online.
+        SetLaunchConfiguration("use_slam", "true"),
     ]
 
 
@@ -110,8 +106,8 @@ def generate_launch_description() -> LaunchDescription:
         "use_office_v2",
         default_value="false",
         description=(
-            "Shorthand: when true, sets world:=anhc_office_v2 and map_file to the "
-            "package-installed anhc_office_v2_map.yaml. Overrides 'world' and 'map_file'."
+            "Shorthand: when true, sets world:=anhc_office_v2 and use_slam:=true "
+            "(no pre-scanned static map)."
         ),
     )
 

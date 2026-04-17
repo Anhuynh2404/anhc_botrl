@@ -24,7 +24,7 @@
       <direction>-0.5 0.2 -1</direction>
     </light>
     <scene>
-      <!-- Reduce wash-out: STL has no materials so it can render very bright -->
+      <!-- Keep ambient/background conservative for stable office lighting. -->
       <ambient>0.18 0.18 0.20 1</ambient>
       <background>0.15 0.15 0.18 1</background>
       <shadows>true</shadows>
@@ -68,16 +68,13 @@
 
     <model name="office_env">
       <static>true</static>
-      <!-- NOTE: If the mesh appears rotated/offset in Gazebo, adjust this pose.
-           Determine the correct offset by loading office_v2.stl and noting where
-           the floor-level walls start relative to the world origin.
-           Final tuned pose should be documented here after first visual inspection. -->
-      <pose>0 0 0 0 0 0</pose>
+      <!-- OBJ exported with different up-axis; rotate to align with Gazebo Z-up. -->
+      <pose>0 0 0 1.57079632679 0 0</pose>
       <link name="link">
         <collision name="collision">
           <geometry>
             <mesh>
-              <uri>../models/office_v2.stl</uri>
+              <uri>../models/office_v2.obj</uri>
               <scale>1 1 1</scale>
             </mesh>
           </geometry>
@@ -85,16 +82,10 @@
         <visual name="visual">
           <geometry>
             <mesh>
-              <uri>../models/office_v2.stl</uri>
+              <uri>../models/office_v2.obj</uri>
               <scale>1 1 1</scale>
             </mesh>
           </geometry>
-          <!-- STL has no embedded materials; set a neutral gray to avoid blinding white -->
-          <material>
-            <ambient>0.22 0.22 0.24 1</ambient>
-            <diffuse>0.55 0.55 0.58 1</diffuse>
-            <specular>0.05 0.05 0.05 1</specular>
-          </material>
         </visual>
       </link>
     </model>

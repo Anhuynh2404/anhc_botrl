@@ -1,42 +1,14 @@
 import os
-import subprocess
-import tempfile
 
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription, OpaqueFunction, SetEnvironmentVariable
+from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription, SetEnvironmentVariable
 from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import Command, LaunchConfiguration, PathJoinSubstitution
 from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
 from launch_ros.substitutions import FindPackageShare
-
-
-def _launch_joint_state_publisher(context):
-    """Jazzy ``joint_state_publisher`` does not load ``robot_description`` from parameters.
-
-    It only accepts a URDF path on the command line or ``std_msgs/String`` on the
-    ``robot_description`` topic. Passing ``ParameterValue(Command(xacro))`` via launch
-    therefore leaves ``free_joints`` empty and never publishes ``/joint_states``, which
-    breaks the TF tree and confuses slam_toolbox / RViz.
-    """
-    _ = context
-    share = get_package_share_directory("anhc_description")
-    xacro_path = os.path.join(share, "urdf", "anhc_bot.urdf.xacro")
-    urdf_xml = subprocess.check_output(["xacro", xacro_path], text=True)
-    fd, urdf_path = tempfile.mkstemp(prefix="anhc_bot_", suffix=".urdf")
-    with os.fdopen(fd, "w") as tmp:
-        tmp.write(urdf_xml)
-    return [
-        Node(
-            package="joint_state_publisher",
-            executable="joint_state_publisher",
-            arguments=[urdf_path],
-            parameters=[{"use_sim_time": True, "rate": 50}],
-            output="screen",
-        )
-    ]
 
 
 def generate_launch_description():
@@ -73,9 +45,6 @@ def generate_launch_description():
         [FindPackageShare("anhc_description"), "rviz", "anhc_bot.rviz"]
     )
 
-    # joint_state_publisher (Jazzy) needs robot_description as a real string param;
-    # a bare Command() is not always coerced and the node then waits forever on the
-    # /robot_description topic → no /joint_states → incomplete TF → SLAM/RViz queues overflow.
     robot_description = {
         "robot_description": ParameterValue(
             Command(["xacro ", xacro_file]),
@@ -147,8 +116,15 @@ def generate_launch_description():
                 parameters=[robot_description],
                 output="screen",
             ),
-            # Publish joint states for non-fixed joints (e.g. left/right wheels).
-            OpaqueFunction(function=_launch_joint_state_publisher),
+            # Fallback joint state source for RViz RobotModel TF stability. This keeps
+            # wheel transforms available even when Gazebo joint-state bridging is absent.
+            Node(
+                package="joint_state_publisher",
+                executable="joint_state_publisher",
+                name="joint_state_publisher",
+                parameters=[{"use_sim_time": True, "rate": 30.0}],
+                output="screen",
+            ),
             Node(
                 package="anhc_simulation",
                 executable="anhc_cmd_vel_idle_gate.py",

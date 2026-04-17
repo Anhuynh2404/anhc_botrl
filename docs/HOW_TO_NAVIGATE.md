@@ -11,7 +11,7 @@ ros2 launch anhc_simulation anhc_teleop.launch.py
 ros2 run nav2_map_server map_saver_cli -f src/anhc_simulation/maps/name_map
 ```
 
-# Hướng dẫn chạy Navigation với map đã lưu
+# Hướng dẫn chạy Navigation (flow mới office_v2 + SLAM)
 
 ## Bước 1 — Build
 
@@ -21,36 +21,38 @@ colcon build --symlink-install
 source install/setup.bash
 ```
 
-## Bước 2 — Launch với A* (mặc định)
+## Bước 2 — Launch office_v2 với A* (mặc định)
 
 ```bash
 cd ~/anhc_botrl
 source install/setup.bash
 
 ros2 launch anhc_simulation anhc_nav.launch.py \
-  world:=anhc_indoor \
-  map_file:=/home/anhuynh/anhc_botrl/src/anhc_simulation/maps/anhc_office_map.yaml \
+  world:=anhc_office_v2 \
+  use_office_v2:=true \
+  use_slam:=true \
   algorithm:=astar \
   use_rviz:=true
 ```
 
-## Bước 3 — Launch với Dijkstra
+## Bước 3 — Launch office_v2 với Dijkstra
 
 ```bash
 cd ~/anhc_botrl
 source install/setup.bash
 
 ros2 launch anhc_simulation anhc_nav.launch.py \
-  world:=anhc_indoor \
-  map_file:=/home/anhuynh/anhc_botrl/src/anhc_simulation/maps/anhc_office_map.yaml \
+  world:=anhc_office_v2 \
+  use_office_v2:=true \
+  use_slam:=true \
   algorithm:=dijkstra \
   use_rviz:=true
 ```
 
 ## Bước 4 — Đặt goal trong RViz2
 
-1. Chờ RViz2 mở và map hiện ra (màu trắng/đen).
-2. Chờ robot model xuất hiện đúng vị trí. Mặc định AMCL dùng initial pose `(0, 0, yaw=0)` trong `anhc_amcl_nav.yaml` (`set_initial_pose: true`) để ngay lập tức có TF `map→odom`. Nếu vị trí trên map lệch so với thực tế trong Gazebo, dùng **2D Pose Estimate** một lần để chỉnh lại.
+1. Chờ RViz2 mở và map SLAM bắt đầu được vẽ theo dữ liệu lidar.
+2. Chờ robot model xuất hiện đúng vị trí. Với flow SLAM online (`use_slam:=true`) không dùng map tĩnh/AMCL ban đầu.
 3. Trên toolbar RViz2, click **2D Goal Pose**.
 4. Click và kéo trên map để đặt goal (click = vị trí, kéo = hướng robot).
 5. Xem đường xanh (planned path) xuất hiện.
@@ -95,15 +97,20 @@ Gửi goal mới sau khi switch (ví dụ dùng lại **2D Goal Pose** trong RVi
 ros2 topic echo /planning/stats
 ```
 
-## Bước 7 — Chạy với map khác
+## Bước 7 — Chạy với map khác (map tĩnh đã lưu)
 
 ```bash
 ros2 launch anhc_simulation anhc_nav.launch.py \
+  world:=anhc_indoor \
+  use_slam:=false \
   map_file:=/path/to/your/map.yaml \
   algorithm:=astar
 ```
 
 ## Ghi chú về localization
+
+- Flow khuyến nghị hiện tại cho môi trường `office_v2`: `use_office_v2:=true` + `use_slam:=true` để tạo map mới trực tiếp trong phiên chạy.
+- Sau khi quét xong, lưu map bằng `map_saver_cli` rồi mới chuyển sang chế độ map tĩnh (`use_slam:=false` + `map_file:=...`).
 
 - Map dạng **`.yaml` + `.pgm`** (như `anhc_indoor_map`) thường dùng với **`nav2_amcl`**. `anhc_nav.launch.py` tự chọn AMCL nếu **không** có cặp file serialize của slam_toolbox cùng tên base với map (`<tên_map>.posegraph` và `<tên_map>.data` nằm cùng thư mục với file YAML).
 - Nếu bạn có map serialize từ **slam_toolbox**, đặt hai file đó cạnh file YAML và đặt `map_file` trỏ tới YAML đó; launch sẽ dùng **slam_toolbox** ở chế độ **localization** và tham số `map_file_name` trỏ tới base path (không đuôi).
@@ -113,3 +120,5 @@ ros2 launch anhc_simulation anhc_nav.launch.py \
 - `use_rviz:=false` — không mở RViz2.
 - `gz_extra_args:=-s` — Gazebo headless (chỉ server).
 - `world:=<tên_world>` — đổi world (không đuôi `.sdf`).
+- `use_office_v2:=true` — shorthand cho world `anhc_office_v2` và bật flow phù hợp office_v2.
+- `use_slam:=true|false` — `true` để quét map mới; `false` để chạy localization với map đã lưu.

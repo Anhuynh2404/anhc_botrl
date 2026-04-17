@@ -49,17 +49,55 @@ from launch_ros.substitutions import FindPackageShare
 from lifecycle_msgs.msg import Transition
 
 
+_AUTO = "__auto__"
+
+# Maps world argument → (gz_world_name, map YAML basename).
+# The gz_world_name must match <world name="..."> in the corresponding SDF file.
+_WORLD_DEFAULTS: dict[str, tuple[str, str]] = {
+    "anhc_indoor": ("anhc_indoor_world", "anhc_indoor_map.yaml"),
+    "anhc_office_v2": ("anhc_office_v2_world", ""),
+    "anhc_office": ("anhc_office_world", "anhc_office_map.yaml"),
+}
+
+
 def _apply_office_v2_shorthand(context):
     """When use_office_v2:=true, override 'world', 'map_file', and 'gz_world_name'."""
     if context.perform_substitution(LaunchConfiguration("use_office_v2")) != "true":
         return []
-    share = get_package_share_directory("anhc_simulation")
-    map_path = os.path.join(share, "maps", "anhc_office_v2_map.yaml")
     return [
         SetLaunchConfiguration("world", "anhc_office_v2"),
-        SetLaunchConfiguration("map_file", map_path),
+        SetLaunchConfiguration("use_slam", "true"),
         SetLaunchConfiguration("gz_world_name", "anhc_office_v2_world"),
     ]
+
+
+def _apply_world_defaults(context):
+    """Derive gz_world_name and map_file from 'world' when still set to sentinel '__auto__'.
+
+    Runs after ``_apply_office_v2_shorthand`` so explicit overrides from that
+    function (or from the command line) are never clobbered.
+    """
+    world = context.perform_substitution(LaunchConfiguration("world"))
+    gz_world_name = context.perform_substitution(LaunchConfiguration("gz_world_name"))
+    map_file = context.perform_substitution(LaunchConfiguration("map_file"))
+
+    share = get_package_share_directory("anhc_simulation")
+    gz_name_default, map_basename_default = _WORLD_DEFAULTS.get(
+        world, (f"{world}_world", f"{world}_map.yaml")
+    )
+    actions = []
+
+    if gz_world_name == _AUTO:
+        actions.append(SetLaunchConfiguration("gz_world_name", gz_name_default))
+
+    if map_file == _AUTO and map_basename_default:
+        actions.append(
+            SetLaunchConfiguration(
+                "map_file", os.path.join(share, "maps", map_basename_default)
+            )
+        )
+
+    return actions
 
 
 def _localization_and_lifecycle(context):
@@ -70,6 +108,25 @@ def _localization_and_lifecycle(context):
     ``map_server`` is launched before this function; order here is localization node(s)
     then ``lifecycle_manager`` so ``amcl`` exists when autostart runs.
     """
+    use_slam = context.perform_substitution(LaunchConfiguration("use_slam")) == "true"
+    if use_slam:
+        share_loc = get_package_share_directory("anhc_localization")
+        slam_params = os.path.join(share_loc, "config", "anhc_slam_localization.yaml")
+        slam_launch = IncludeLaunchDescription(
+            PythonLaunchDescriptionSource(
+                [os.path.join(get_package_share_directory("slam_toolbox"), "launch", "online_async_launch.py")]
+            ),
+            launch_arguments={
+                "slam_params_file": slam_params,
+                "use_sim_time": "true",
+                "autostart": "true",
+            }.items(),
+        )
+        return [
+            LogInfo(msg="[anhc_nav] Localization: slam_toolbox online SLAM (new map)."),
+            slam_launch,
+        ]
+
     raw_map = LaunchConfiguration("map_file")
     map_path = Path(os.path.expanduser(context.perform_substitution(raw_map))).resolve()
     if map_path.suffix.lower() in (".yaml", ".yml"):
@@ -224,10 +281,27 @@ def _gz_set_pose_service_bridge(context):
     ]
 
 
-def generate_launch_description() -> LaunchDescription:
-    default_map = PathJoinSubstitution(
-        [FindPackageShare("anhc_simulation"), "maps", "anhc_indoor_map.yaml"]
+def _gz_joint_state_bridge(context):
+    """Bridge Gazebo wheel joint states to ROS /joint_states for robot_state_publisher."""
+    world = context.perform_substitution(LaunchConfiguration("gz_world_name"))
+    model = "anhc_bot"
+    arg = (
+        f"/world/{world}/model/{model}/joint_state"
+        "@sensor_msgs/msg/JointState[gz.msgs.Model"
     )
+    return [
+        Node(
+            package="ros_gz_bridge",
+            executable="parameter_bridge",
+            name="gz_joint_state_bridge",
+            arguments=[arg],
+            parameters=[{"use_sim_time": True}],
+            output="screen",
+        )
+    ]
+
+
+def generate_launch_description() -> LaunchDescription:
     planner_params = PathJoinSubstitution(
         [FindPackageShare("anhc_planning"), "config", "planner_params.yaml"]
     )
@@ -261,14 +335,24 @@ def generate_launch_description() -> LaunchDescription:
                 default_value="false",
                 description=(
                     "Shorthand: when true, sets world:=anhc_office_v2, "
-                    "map_file to the package-installed anhc_office_v2_map.yaml, "
-                    "and gz_world_name:=anhc_office_v2_world."
+                    "use_slam:=true, and gz_world_name:=anhc_office_v2_world."
+                ),
+            ),
+            DeclareLaunchArgument(
+                "use_slam",
+                default_value="false",
+                description=(
+                    "If true, run slam_toolbox online SLAM and do not start map_server/AMCL. "
+                    "Use this for worlds without a pre-scanned map."
                 ),
             ),
             DeclareLaunchArgument(
                 "map_file",
-                default_value=default_map,
-                description="Absolute path to map YAML for map_server.",
+                default_value=_AUTO,
+                description=(
+                    "Absolute path to map YAML for map_server. "
+                    "Used when use_slam:=false; defaults to the map matching the 'world' argument."
+                ),
             ),
             DeclareLaunchArgument(
                 "algorithm",
@@ -287,8 +371,11 @@ def generate_launch_description() -> LaunchDescription:
             ),
             DeclareLaunchArgument(
                 "gz_world_name",
-                default_value="anhc_indoor_world",
-                description="Must match <world name=\"...\"> in the SDF (for set_pose service).",
+                default_value=_AUTO,
+                description=(
+                    "Must match <world name=\"...\"> in the SDF (for set_pose service). "
+                    "Defaults to the world name matching the 'world' argument."
+                ),
             ),
             DeclareLaunchArgument(
                 "gz_extra_args",
@@ -306,8 +393,10 @@ def generate_launch_description() -> LaunchDescription:
                 description="Must stay false for bundled slam_toolbox launch pattern.",
             ),
             OpaqueFunction(function=_apply_office_v2_shorthand),
+            OpaqueFunction(function=_apply_world_defaults),
             sim_launch,
             OpaqueFunction(function=_gz_set_pose_service_bridge),
+            OpaqueFunction(function=_gz_joint_state_bridge),
             Node(
                 package="anhc_simulation",
                 executable="anhc_initialpose_to_gz.py",
@@ -358,6 +447,7 @@ def generate_launch_description() -> LaunchDescription:
                         "yaml_filename": LaunchConfiguration("map_file"),
                     }
                 ],
+                condition=IfCondition(NotSubstitution(LaunchConfiguration("use_slam"))),
             ),
             OpaqueFunction(function=_localization_and_lifecycle),
             Node(
