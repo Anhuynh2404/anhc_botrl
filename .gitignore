@@ -48,3 +48,6 @@ frames_*.gv
 *.stl
 *.obj
 *.mtl
+
+# Large asset (GitHub >100MB)
+src/anhc_simulation/models/office_v2.obj
