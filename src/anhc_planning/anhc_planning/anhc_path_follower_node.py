@@ -53,6 +53,7 @@ class AnhcPathFollowerNode(Node):
         self.declare_parameter("angular_Kd", 0.08)
         self.declare_parameter("transform_timeout", 0.35)
         self.declare_parameter("control_frequency", 20.0)
+        self.declare_parameter("lookahead_ahead_eps", 0.15)
 
         self._path: list[tuple[float, float]] = []
         self._path_frame: str = "map"
@@ -156,12 +157,16 @@ class AnhcPathFollowerNode(Node):
             self._map_to_robot(px, py, robot_map_x, robot_map_y, robot_map_yaw)
             for px, py in path_map
         ]
-        closest_idx = self._closest_index(path_robot)
+        closest_idx = self._closest_index_forward(path_robot, self._path_idx)
+        self._path_idx = closest_idx
         lookahead_m = float(
             self.get_parameter("lookahead_distance").get_parameter_value().double_value
         )
+        ahead_eps = float(
+            self.get_parameter("lookahead_ahead_eps").get_parameter_value().double_value
+        )
         lookahead_idx = self._lookahead_index(path_robot, closest_idx, lookahead_m)
-        lookahead_idx = self._ensure_lookahead_ahead(path_robot, lookahead_idx)
+        lookahead_idx = self._ensure_lookahead_ahead(path_robot, lookahead_idx, ahead_eps)
         lx, ly = path_robot[lookahead_idx]
         lookahead_map_x, lookahead_map_y = path_map[lookahead_idx]
 
@@ -307,9 +312,22 @@ class AnhcPathFollowerNode(Node):
         return (xr, yr)
 
     @staticmethod
-    def _closest_index(path_robot: list[tuple[float, float]]) -> int:
-        best_i, best_d = 0, float("inf")
-        for i, (x, y) in enumerate(path_robot):
+    def _closest_index_forward(
+        path_robot: list[tuple[float, float]], start_i: int
+    ) -> int:
+        """Closest waypoint among indices >= start_i (monotonic progress along path).
+
+        Global minimum distance can lie *behind* the robot on sharp turns, which
+        makes pure pursuit pick a backwards lookahead and causes slow / unstable
+        cornering.
+        """
+        if not path_robot:
+            return 0
+        start_i = max(0, min(start_i, len(path_robot) - 1))
+        best_i = start_i
+        best_d = float("inf")
+        for i in range(start_i, len(path_robot)):
+            x, y = path_robot[i]
             d = math.hypot(x, y)
             if d < best_d:
                 best_d, best_i = d, i
@@ -331,7 +349,7 @@ class AnhcPathFollowerNode(Node):
     def _ensure_lookahead_ahead(
         path_robot: list[tuple[float, float]],
         idx: int,
-        ahead_eps: float = 0.12,
+        ahead_eps: float,
     ) -> int:
         """Advance along the path if the chosen lookahead is behind the robot (xr < 0).
 

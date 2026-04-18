@@ -9,8 +9,9 @@ anhc_global_planner:
     #    35 → robot keeps large clearance (avoids mild zone, ≥band_3)
     #    15 → robot keeps maximum clearance (avoids all coloured cells)
     obstacle_cost_threshold: 55
-    path_smooth_data_weight: 0.65
-    path_smooth_smooth_weight: 0.12
+    # Slightly more smoothing → gentler turns in map frame (path follower still limits speed in curves).
+    path_smooth_data_weight: 0.62
+    path_smooth_smooth_weight: 0.15
     path_smooth_min_waypoints: 5
     astar:
       weight: 1.0
@@ -28,8 +29,9 @@ anhc_global_planner:
       allow_diagonal: true
     greedy_bfs:
       allow_diagonal: true
+    # JPS uses the same obstacle_cost_threshold as other planners (see anhc_global_planner above).
     jps:
-      obstacle_threshold: 100
+      obstacle_threshold: 55
     prm:
       n_samples: 1000          # tăng để phủ map tốt hơn
       connection_radius: 2.0   # tăng để graph liên thông hơn
@@ -41,11 +43,13 @@ anhc_path_follower:
     max_linear_speed: 1.0
     min_linear_speed: 0.12
     max_angular_speed: 1.6
-    lookahead_distance: 0.55
+    # Shorter lookahead + monotonic path index → more responsive, stable corners.
+    lookahead_distance: 0.50
+    lookahead_ahead_eps: 0.15
     goal_tolerance_m: 0.15
-    # Lower = less linear slowdown in curves (path follower uses this, not a hardcoded 0.5).
-    curvature_slowdown_gain: 0.35
-    rotate_in_place_angle_rad: 0.85
+    # Lower = keep more linear speed in gentle curves; too low can overshoot tight turns.
+    curvature_slowdown_gain: 0.30
+    rotate_in_place_angle_rad: 0.78
     rotate_in_place_angular_speed: 1.35
     max_linear_accel: 1.2
     max_angular_accel: 3.0
