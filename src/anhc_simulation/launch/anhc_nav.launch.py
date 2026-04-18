@@ -31,6 +31,7 @@ from launch.actions import (
     RegisterEventHandler,
     SetEnvironmentVariable,
     SetLaunchConfiguration,
+    TimerAction,
 )
 from launch.conditions import IfCondition
 from launch.events import matches_action
@@ -61,12 +62,15 @@ _WORLD_DEFAULTS: dict[str, tuple[str, str]] = {
 
 
 def _apply_office_v2_shorthand(context):
-    """When use_office_v2:=true, override 'world', 'map_file', and 'gz_world_name'."""
+    """When use_office_v2:=true, override world routing only.
+
+    Do not force use_slam here: callers may explicitly run with use_slam:=false
+    and a saved map_file for localization / navigation.
+    """
     if context.perform_substitution(LaunchConfiguration("use_office_v2")) != "true":
         return []
     return [
         SetLaunchConfiguration("world", "anhc_office_v2"),
-        SetLaunchConfiguration("use_slam", "true"),
         SetLaunchConfiguration("gz_world_name", "anhc_office_v2_world"),
     ]
 
@@ -111,7 +115,9 @@ def _localization_and_lifecycle(context):
     use_slam = context.perform_substitution(LaunchConfiguration("use_slam")) == "true"
     if use_slam:
         share_loc = get_package_share_directory("anhc_localization")
-        slam_params = os.path.join(share_loc, "config", "anhc_slam_localization.yaml")
+        # Online new-map SLAM (e.g. office_v2): mapping mode + /scan. Localization yaml is for
+        # serialized slam_toolbox maps in the use_slam:=false branch.
+        slam_params = os.path.join(share_loc, "config", "anhc_slam_mapping.yaml")
         slam_launch = IncludeLaunchDescription(
             PythonLaunchDescriptionSource(
                 [os.path.join(get_package_share_directory("slam_toolbox"), "launch", "online_async_launch.py")]
@@ -122,9 +128,11 @@ def _localization_and_lifecycle(context):
                 "autostart": "true",
             }.items(),
         )
+        # Start slam_toolbox after /clock is flowing (see log: lifecycle activate must not
+        # beat the ros_gz bridge’s first /clock subscription or tf2 buffers thrash).
         return [
             LogInfo(msg="[anhc_nav] Localization: slam_toolbox online SLAM (new map)."),
-            slam_launch,
+            TimerAction(period=1.5, actions=[slam_launch]),
         ]
 
     raw_map = LaunchConfiguration("map_file")
@@ -281,26 +289,6 @@ def _gz_set_pose_service_bridge(context):
     ]
 
 
-def _gz_joint_state_bridge(context):
-    """Bridge Gazebo wheel joint states to ROS /joint_states for robot_state_publisher."""
-    world = context.perform_substitution(LaunchConfiguration("gz_world_name"))
-    model = "anhc_bot"
-    arg = (
-        f"/world/{world}/model/{model}/joint_state"
-        "@sensor_msgs/msg/JointState[gz.msgs.Model"
-    )
-    return [
-        Node(
-            package="ros_gz_bridge",
-            executable="parameter_bridge",
-            name="gz_joint_state_bridge",
-            arguments=[arg],
-            parameters=[{"use_sim_time": True}],
-            output="screen",
-        )
-    ]
-
-
 def generate_launch_description() -> LaunchDescription:
     planner_params = PathJoinSubstitution(
         [FindPackageShare("anhc_planning"), "config", "planner_params.yaml"]
@@ -357,7 +345,10 @@ def generate_launch_description() -> LaunchDescription:
             DeclareLaunchArgument(
                 "algorithm",
                 default_value="astar",
-                description="Global planner algorithm: astar | dijkstra.",
+                description=(
+                    "Global planner: astar, dijkstra, greedy_bfs, theta_star, jps, "
+                    "rrt_star, dstar_lite, prm, rl"
+                ),
             ),
             DeclareLaunchArgument(
                 "use_rviz",
@@ -396,7 +387,6 @@ def generate_launch_description() -> LaunchDescription:
             OpaqueFunction(function=_apply_world_defaults),
             sim_launch,
             OpaqueFunction(function=_gz_set_pose_service_bridge),
-            OpaqueFunction(function=_gz_joint_state_bridge),
             Node(
                 package="anhc_simulation",
                 executable="anhc_initialpose_to_gz.py",
