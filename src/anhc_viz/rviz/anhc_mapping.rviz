@@ -1,22 +1,47 @@
 Panels:
   - Class: rviz_common/Displays
+    Help Height: 70
     Name: Displays
+    Property Tree Widget:
+      Expanded: ~
+      Splitter Ratio: 0.5
+    Tree Height: 158
   - Class: rviz_common/Selection
     Name: Selection
   - Class: rviz_common/Tool Properties
+    Expanded: ~
     Name: Tool Properties
+    Splitter Ratio: 0.5
   - Class: rviz_common/Views
+    Expanded:
+      - /Current View1
     Name: Views
+    Splitter Ratio: 0.5
 Visualization Manager:
   Class: ""
   Displays:
-    - Alpha: 0.7
+    - Alpha: 0.699999988079071
+      Binary representation: false
+      Binary threshold: 100
       Class: rviz_default_plugins/Map
       Color Scheme: map
+      Draw Behind: false
       Enabled: true
       Name: Map
       Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        Filter size: 10
+        History Policy: Keep Last
+        Reliability Policy: Reliable
         Value: /map
+      Update Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /map_updates
+      Use Timestamp: false
       Value: true
     - Alpha: 1
       Autocompute Intensity Bounds: true
@@ -40,7 +65,7 @@ Visualization Manager:
       Position Transformer: XYZ
       Selectable: true
       Size (Pixels): 3
-      Size (m): 0.03
+      Size (m): 0.029999999329447746
       Style: Points
       Topic:
         Depth: 50
@@ -54,49 +79,172 @@ Visualization Manager:
       Value: true
     - Alpha: 1
       Class: rviz_default_plugins/RobotModel
-      Enabled: true
-      Name: RobotModel
+      Collision Enabled: false
+      Description File: ""
+      Description Source: Topic
       Description Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
         Value: /robot_description
+      Enabled: true
+      Links:
+        All Links Enabled: true
+        Expand Joint Details: false
+        Expand Link Details: false
+        Expand Tree: false
+        Link Tree Style: Links in Alphabetic Order
+        back_left_wheel:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        back_right_wheel:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        base_footprint:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        base_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        camera_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        front_left_wheel:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        front_right_wheel:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        imu_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        lidar_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+      Mass Properties:
+        Inertia: false
+        Mass: false
+      Name: RobotModel
+      TF Prefix: ""
+      Update Interval: 0
       Value: true
+      Visual Enabled: true
     - Class: rviz_default_plugins/TF
       Enabled: true
-      Name: TF
+      Filter (blacklist): ""
+      Filter (whitelist): ""
+      Frame Timeout: 15
       Frames:
         All Enabled: false
+        anhc_bot/base_footprint/anhc_depth_camera:
+          Value: true
+        anhc_bot/base_footprint/anhc_imu:
+          Value: true
+        anhc_bot/base_footprint/anhc_lidar:
+          Value: true
+        anhc_bot/base_footprint/anhc_rgb_camera:
+          Value: true
+        back_left_wheel:
+          Value: true
+        back_right_wheel:
+          Value: true
+        base_footprint:
+          Value: true
+        base_link:
+          Value: true
+        camera_link:
+          Value: true
+        front_left_wheel:
+          Value: true
+        front_right_wheel:
+          Value: true
+        imu_link:
+          Value: true
+        lidar_link:
+          Value: true
         map:
           Value: true
         odom:
           Value: true
-        base_footprint:
-          Value: true
+      Marker Scale: 1
+      Name: TF
       Show Arrows: true
       Show Axes: true
       Show Names: true
+      Tree:
+        map:
+          {}
+        odom:
+          base_footprint:
+            base_link:
+              back_left_wheel:
+                {}
+              back_right_wheel:
+                {}
+              camera_link:
+                anhc_bot/base_footprint/anhc_depth_camera:
+                  {}
+                anhc_bot/base_footprint/anhc_rgb_camera:
+                  {}
+              front_left_wheel:
+                {}
+              front_right_wheel:
+                {}
+              imu_link:
+                anhc_bot/base_footprint/anhc_imu:
+                  {}
+              lidar_link:
+                anhc_bot/base_footprint/anhc_lidar:
+                  {}
+      Update Interval: 0
       Value: true
     - Class: rviz_default_plugins/Axes
       Enabled: true
       Length: 1
       Name: Axes
-      Radius: 0.1
+      Radius: 0.10000000149011612
       Reference Frame: odom
       Value: true
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
-    # odom: robot + laser match Gazebo (odom->base_footprint from sim). map: map fixed, robot jitters
-    # as slam_toolbox publishes map->odom. Switch to "map" here if you prefer a stable map on screen.
     Fixed Frame: odom
     Frame Rate: 30
   Name: root
   Tools:
     - Class: rviz_default_plugins/Interact
+      Hide Inactive Objects: true
     - Class: rviz_default_plugins/MoveCamera
     - Class: rviz_default_plugins/Select
     - Class: rviz_default_plugins/FocusCamera
     - Class: rviz_default_plugins/Measure
+      Line color: 128; 128; 0
     - Class: rviz_default_plugins/SetInitialPose
+      Covariance x: 0.25
+      Covariance y: 0.25
+      Covariance yaw: 0.06853891909122467
       Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
         Value: /initialpose
   Transformation:
     Current:
@@ -105,8 +253,39 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Distance: 12
+      Distance: 34.447975158691406
+      Enable Stereo Rendering:
+        Stereo Eye Separation: 0.05999999865889549
+        Stereo Focal Distance: 1
+        Swap Stereo Eyes: false
+        Value: false
+      Focal Point:
+        X: 0
+        Y: 0
+        Z: 0
+      Focal Shape Fixed Size: true
+      Focal Shape Size: 0.05000000074505806
+      Invert Z Axis: false
       Name: Current View
-      Pitch: 0.9
+      Near Clip Distance: 0.009999999776482582
+      Pitch: 1.5697963237762451
       Target Frame: odom
-      Yaw: 0.8
+      Value: Orbit (rviz_default_plugins)
+      Yaw: 1.410000205039978
+    Saved: ~
+Window Geometry:
+  Displays:
+    collapsed: false
+  Height: 999
+  Hide Left Dock: false
+  Hide Right Dock: false
+  QMainWindow State: 000000ff00000000fd00000001000000000000023800000377fc0200000004fb000000100044006900730070006c006100790073010000004800000136000000de00fffffffb0000001200530065006c0065006300740069006f006e01000001840000008f0000006600fffffffb0000001e0054006f006f006c002000500072006f007000650072007400690065007301000002190000008e0000006600fffffffb0000000a0056006900650077007301000002ad00000112000000c400ffffff000005420000037700000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
+  Selection:
+    collapsed: false
+  Tool Properties:
+    collapsed: false
+  Views:
+    collapsed: false
+  Width: 1920
+  X: 0
+  Y: 44
