@@ -4,6 +4,8 @@ ekf_filter_node:
     frequency: 30.0
     two_d_mode: true
     sensor_timeout: 0.1
+    # Wider TF wait reduces spurious tf2 “jump back” clears when sim/bridges start up.
+    transform_timeout: 1.0
     print_diagnostics: true
     # Simulation publishes odom→base_footprint via anhc_odom_tf_node (from bridged /odom).
     # Enabling EKF publish_tf would duplicate that transform and break SLAM / RViz.

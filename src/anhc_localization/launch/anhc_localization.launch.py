@@ -16,7 +16,7 @@ def generate_launch_description():
     map_file = LaunchConfiguration('map_file')
 
     slam_params = PathJoinSubstitution(
-        [FindPackageShare('anhc_localization'), 'config', 'anhc_slam_localization.yaml'])
+        [FindPackageShare('anhc_localization'), 'config', 'anhc_slam_mapping.yaml'])
     ekf_params = PathJoinSubstitution(
         [FindPackageShare('anhc_localization'), 'config', 'ekf_params.yaml'])
     default_map_file = PathJoinSubstitution(

@@ -1,5 +1,5 @@
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
+from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription, TimerAction
 from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
@@ -44,7 +44,8 @@ def generate_launch_description() -> LaunchDescription:
                 default_value=default_slam_params,
                 description="Path to the slam_toolbox mapping parameters YAML.",
             ),
-            slam_launch,
+            # Wait for ros_gz bridge to start /clock before SLAM lifecycle activation.
+            TimerAction(period=1.5, actions=[slam_launch]),
             Node(
                 package="rviz2",
                 executable="rviz2",
