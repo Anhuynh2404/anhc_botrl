@@ -20,7 +20,6 @@ from pathlib import Path
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import ExecuteProcess, LogInfo
-from launch_ros.actions import Node
 
 
 def generate_launch_description() -> LaunchDescription:
@@ -29,15 +28,13 @@ def generate_launch_description() -> LaunchDescription:
     ros_distro = os.environ.get("ROS_DISTRO", "jazzy")
     ros_setup = f"/opt/ros/{ros_distro}/setup.bash"
 
-    teleop_params = [
-        {
-            "use_sim_time": True,
-            "speed": 0.18,
-            "turn": 0.45,
-            "repeat_rate": 15.0,
-            "key_timeout": 0.4,
-        }
-    ]
+    # Defaults (ros2 run -p); user can still w/x/e/c in teleop.
+    _spd, _turn, _rep, _key = 0.28, 0.65, 15.0, 0.4
+    _ros_args = (
+        "--ros-args -r /cmd_vel:=/cmd_vel "
+        f"-p use_sim_time:=true -p speed:={_spd} -p turn:={_turn} "
+        f"-p repeat_rate:={_rep} -p key_timeout:={_key}"
+    )
 
     intro = LogInfo(
         msg=(
@@ -50,17 +47,35 @@ def generate_launch_description() -> LaunchDescription:
 
     xterm = shutil.which("xterm")
     if xterm:
+        # Do not use Node(prefix=xterm -e <binary>): mirror gnome path with bash -lc + ros2 run.
+        if install_setup.is_file():
+            inner_x = (
+                f"source {ros_setup} && source {install_setup} && "
+                f"ros2 run teleop_twist_keyboard teleop_twist_keyboard {_ros_args}; exec bash"
+            )
+        else:
+            inner_x = (
+                f"source {ros_setup} && "
+                f"ros2 run teleop_twist_keyboard teleop_twist_keyboard {_ros_args}; exec bash"
+            )
         return LaunchDescription(
             [
                 intro,
-                Node(
-                    package="teleop_twist_keyboard",
-                    executable="teleop_twist_keyboard",
-                    name="teleop_twist_keyboard",
+                ExecuteProcess(
+                    cmd=[
+                        xterm,
+                        "-fa",
+                        "Monospace",
+                        "-fs",
+                        "13",
+                        "-title",
+                        "anhc_teleop",
+                        "-e",
+                        "bash",
+                        "-lc",
+                        inner_x,
+                    ],
                     output="screen",
-                    prefix=f"{xterm} -fa Monospace -fs 13 -e ",
-                    remappings=[("/cmd_vel", "/cmd_vel")],
-                    parameters=teleop_params,
                 ),
             ]
         )
@@ -69,10 +84,7 @@ def generate_launch_description() -> LaunchDescription:
     if gnome and install_setup.is_file():
         inner = (
             f"source {ros_setup} && source {install_setup} && "
-            "ros2 run teleop_twist_keyboard teleop_twist_keyboard "
-            "--ros-args -r /cmd_vel:=/cmd_vel "
-            "-p use_sim_time:=true -p speed:=0.18 -p turn:=0.45 "
-            "-p repeat_rate:=15.0 -p key_timeout:=0.4; exec bash"
+            f"ros2 run teleop_twist_keyboard teleop_twist_keyboard {_ros_args}; exec bash"
         )
         return LaunchDescription(
             [
@@ -92,9 +104,8 @@ def generate_launch_description() -> LaunchDescription:
                     "or workspace install/setup.bash missing.\n"
                     "Option A: sudo apt install xterm\n"
                     "Option B: run in a normal terminal (after sourcing install/setup.bash):\n"
-                    "  ros2 run teleop_twist_keyboard teleop_twist_keyboard --ros-args "
-                    "-r /cmd_vel:=/cmd_vel -p use_sim_time:=true "
-                    "-p speed:=0.18 -p turn:=0.45 -p repeat_rate:=15.0 -p key_timeout:=0.4"
+                    "  ros2 run teleop_twist_keyboard teleop_twist_keyboard "
+                    f"{_ros_args}"
                 )
             ),
         ]

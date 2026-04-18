@@ -1,17 +1,19 @@
 """Simulation + SLAM mapping launch (Phase 1).
 
-LiDAR Gazebo↔URDF static TF is published from ``anhc_sim.launch.py`` (included
-below) so this file stays a thin orchestrator and ``anhc_master`` gets the same TF.
+``anhc_sim.launch.py`` publishes Gazebo↔URDF static TF, ``/scan`` relay, and
+``odom``→``base_footprint`` TF so this file only adds slam_toolbox + RViz.
 """
 
 from launch import LaunchDescription
-from launch.actions import IncludeLaunchDescription, LogInfo
+from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription, LogInfo
 from launch.launch_description_sources import PythonLaunchDescriptionSource
-from launch.substitutions import PathJoinSubstitution
+from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch_ros.substitutions import FindPackageShare
 
 
 def generate_launch_description() -> LaunchDescription:
+    world = LaunchConfiguration("world")
+    use_rviz = LaunchConfiguration("use_rviz")
     sim_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             [
@@ -24,6 +26,7 @@ def generate_launch_description() -> LaunchDescription:
             "sim_use_rviz": "false",
             # Empty value disables '-s' default, so Gazebo GUI is shown.
             "gz_extra_args": "",
+            "world": world,
         }.items(),
     )
 
@@ -40,12 +43,22 @@ def generate_launch_description() -> LaunchDescription:
             ]
         ),
         launch_arguments={
-            "use_rviz": "true",
+            "use_rviz": use_rviz,
         }.items(),
     )
 
     return LaunchDescription(
         [
+            DeclareLaunchArgument(
+                "world",
+                default_value="anhc_office_v2",
+                description="Gazebo world name (without .sdf).",
+            ),
+            DeclareLaunchArgument(
+                "use_rviz",
+                default_value="true",
+                description="Launch RViz2 for mapping visualization.",
+            ),
             LogInfo(
                 msg=(
                     "Drive the robot around the entire environment, then run: "

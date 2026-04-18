@@ -29,6 +29,7 @@ install(
   scripts/anhc_gz_frame_static_tf.py
   scripts/anhc_initialpose_odom_stamp.py
   scripts/anhc_initialpose_to_gz.py
+  scripts/anhc_joint_state_stamp_guard.py
   DESTINATION lib/${PROJECT_NAME}
 )
 

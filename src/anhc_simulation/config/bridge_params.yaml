@@ -57,9 +57,9 @@
 # /world/.../model/.../tf; Pose_V bridge topic mismatch breaks slam_toolbox silently).
 
 # ROS side gated by anhc_cmd_vel_idle_gate (zeros while no /cmd_vel traffic).
-# GZ topic must match DiffDrive (default /model/<name>/cmd_vel); spawn name is anhc_bot in anhc_sim.launch.py.
+# In this robot SDF, DiffDrive subscribes to the absolute GZ topic /cmd_vel.
 - ros_topic_name: "/cmd_vel_gz"
-  gz_topic_name: "/model/anhc_bot/cmd_vel"
+  gz_topic_name: "/cmd_vel"
   ros_type_name: "geometry_msgs/msg/Twist"
   gz_type_name: "gz.msgs.Twist"
   direction: ROS_TO_GZ

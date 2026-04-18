@@ -12,6 +12,7 @@
     <plugin filename="gz-sim-user-commands-system" name="gz::sim::systems::UserCommands"/>
     <plugin filename="gz-sim-scene-broadcaster-system" name="gz::sim::systems::SceneBroadcaster"/>
     <plugin filename="gz-sim-sensors-system" name="gz::sim::systems::Sensors">
+      <!-- Use ogre for wider GPU/driver compatibility on this machine. -->
       <render_engine>ogre</render_engine>
     </plugin>
     <plugin filename="gz-sim-imu-system" name="gz::sim::systems::Imu"/>
@@ -71,14 +72,7 @@
       <!-- OBJ exported with different up-axis; rotate to align with Gazebo Z-up. -->
       <pose>0 0 0 1.57079632679 0 0</pose>
       <link name="link">
-        <collision name="collision">
-          <geometry>
-            <mesh>
-              <uri>../models/office_v2.obj</uri>
-              <scale>1 1 1</scale>
-            </mesh>
-          </geometry>
-        </collision>
+        <!-- Collision mesh disabled: dense OBJ collision can trap wheels and block motion. -->
         <visual name="visual">
           <geometry>
             <mesh>
@@ -90,27 +84,5 @@
       </link>
     </model>
 
-    <!-- Start waypoint (green cylinder). Default origin (0,0) — refine after map inspection. -->
-    <model name="start_waypoint">
-      <static>true</static>
-      <pose>0 0 0.15 0 0 0</pose>
-      <link name="link">
-        <visual name="v">
-          <geometry><cylinder><radius>0.25</radius><length>0.3</length></cylinder></geometry>
-          <material><ambient>0 1 0 1</ambient><diffuse>0 1 0 1</diffuse></material>
-        </visual>
-      </link>
-    </model>
-    <!-- Goal waypoint (red cylinder). Default (5,5) — refine after map inspection. -->
-    <model name="goal_waypoint">
-      <static>true</static>
-      <pose>5 5 0.15 0 0 0</pose>
-      <link name="link">
-        <visual name="v">
-          <geometry><cylinder><radius>0.25</radius><length>0.3</length></cylinder></geometry>
-          <material><ambient>1 0 0 1</ambient><diffuse>1 0 0 1</diffuse></material>
-        </visual>
-      </link>
-    </model>
   </world>
 </sdf>

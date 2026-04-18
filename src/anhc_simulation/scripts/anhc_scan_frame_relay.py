@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Relay /scan_gz -> /scan: only rewrites LaserScan header.frame_id (e.g. to lidar_link).
+"""Relay /scan_gz -> /scan and normalize LaserScan header timing/frame.
 
-Does not transform ranges, touch TF, or re-stamp; keeps message payload identical otherwise.
+Does not transform ranges or touch TF; only fixes header fields.
 """
 
 from __future__ import annotations
@@ -46,13 +46,18 @@ class ScanFrameRelay(Node):
         )
 
     def _cb(self, msg: LaserScan) -> None:
-        # Drop scans whose stamp lags sim clock by many seconds (stale GZ/bridge
-        # leftovers confuse RViz message filters).
         now = self.get_clock().now()
         st = Time.from_msg(msg.header.stamp)
-        age_ns = now.nanoseconds - st.nanoseconds
-        if age_ns > 2_000_000_000:
-            return
+        # Gazebo bridge can emit zero/old stamps during startup. If we drop those,
+        # /scan appears dead and slam_toolbox never publishes map->odom.
+        if st.nanoseconds == 0:
+            msg.header.stamp = now.to_msg()
+        elif now.nanoseconds > 0:
+            age_ns = now.nanoseconds - st.nanoseconds
+            # Keep a stale guard for genuinely old scans, but do not reject startup
+            # transients where sim clock and sensor timestamp briefly race.
+            if age_ns > 5_000_000_000:
+                msg.header.stamp = now.to_msg()
         msg.header.frame_id = self._frame
         self._pub.publish(msg)
 

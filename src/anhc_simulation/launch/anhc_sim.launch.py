@@ -1,5 +1,4 @@
 import os
-
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription, SetEnvironmentVariable
@@ -9,7 +8,6 @@ from launch.substitutions import Command, LaunchConfiguration, PathJoinSubstitut
 from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
 from launch_ros.substitutions import FindPackageShare
-
 
 def generate_launch_description():
     # Gazebo Harmonic converts package:// URIs to model:// when parsing URDF→SDF.
@@ -78,7 +76,7 @@ def generate_launch_description():
             "-y",
             "0.0",
             "-z",
-            "0.20",
+            "0.15",
             "-Y",
             "0.0",
         ],
@@ -116,13 +114,13 @@ def generate_launch_description():
                 parameters=[robot_description],
                 output="screen",
             ),
-            # Fallback joint state source for RViz RobotModel TF stability. This keeps
-            # wheel transforms available even when Gazebo joint-state bridging is absent.
+            # Mapping stability: publish deterministic /joint_states in ROS time. Bridged wheel
+            # joint stamps from Gazebo can arrive out-of-order and trigger TF_OLD_DATA bursts.
             Node(
                 package="joint_state_publisher",
                 executable="joint_state_publisher",
                 name="joint_state_publisher",
-                parameters=[{"use_sim_time": True, "rate": 30.0}],
+                parameters=[{"use_sim_time": True, "rate": 15.0}],
                 output="screen",
             ),
             Node(
@@ -140,23 +138,6 @@ def generate_launch_description():
                 ],
                 output="screen",
             ),
-            Node(
-                package="anhc_simulation",
-                executable="anhc_odom_tf_node.py",
-                name="anhc_odom_tf_publisher",
-                parameters=[
-                    {"use_sim_time": True, "use_odometry_msg_stamp": True},
-                ],
-                output="screen",
-            ),
-            # Scan relay: /scan_gz -> /scan, header.frame_id only; odom TF from anhc_odom_tf_node.
-            Node(
-                package="anhc_simulation",
-                executable="anhc_scan_frame_relay.py",
-                name="anhc_scan_frame_relay",
-                parameters=[{"use_sim_time": True}],
-                output="screen",
-            ),
             spawn_entity,
 
             # Gazebo scoped sensor frames → URDF names on /tf_static (stamp 0). Avoids
@@ -167,6 +148,24 @@ def generate_launch_description():
                 executable="anhc_gz_frame_static_tf.py",
                 name="anhc_gz_frame_static_bridges",
                 parameters=[{"use_sim_time": True}],
+                output="screen",
+            ),
+            # /scan + odom→base_footprint TF (see bridge_params.yaml; mapping_phase used to
+            # duplicate these — keep them here so anhc_nav / anhc_master get the same tree).
+            Node(
+                package="anhc_simulation",
+                executable="anhc_scan_frame_relay.py",
+                name="anhc_scan_frame_relay",
+                parameters=[{"use_sim_time": True}],
+                output="screen",
+            ),
+            Node(
+                package="anhc_simulation",
+                executable="anhc_odom_tf_node.py",
+                name="anhc_odom_tf_publisher",
+                parameters=[
+                    {"use_sim_time": True, "use_odometry_msg_stamp": True},
+                ],
                 output="screen",
             ),
 
