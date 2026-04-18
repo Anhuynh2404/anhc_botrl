@@ -72,7 +72,8 @@ class AnhcGlobalPlannerNode(Node):
     Parameters
     ----------
     algorithm : str
-        Active planner key.  One of: astar, dijkstra, rrt_star, dstar_lite, rl.
+        Active planner key: astar, dijkstra, greedy_bfs, theta_star, jps,
+        rrt_star, dstar_lite, prm, rl.
     """
 
     def __init__(self) -> None:
@@ -244,12 +245,11 @@ class AnhcGlobalPlannerNode(Node):
     def _get_robot_pose(self) -> tuple[float, float] | None:
         """Resolve start pose for planning.
 
-        Prefer manually provided /initialpose when available (RViz workflow),
-        then fall back to TF map→base_footprint / map→base_link.
+        Always prefer current TF map→base (robot pose). Only use /initialpose
+        as a fallback when map→base is not yet available (e.g. before AMCL
+        has published map→odom). Storing /initialpose as the permanent start
+        was wrong: the robot moves, but _manual_start never updated.
         """
-        if self._manual_start is not None:
-            return self._manual_start
-
         try:
             t = self._tf_buffer.lookup_transform(
                 "map", "base_footprint", rclpy.time.Time()
@@ -269,6 +269,9 @@ class AnhcGlobalPlannerNode(Node):
             return (x, y)
         except TransformException:
             pass
+
+        if self._manual_start is not None:
+            return self._manual_start
 
         return None
 
@@ -333,10 +336,10 @@ class AnhcGlobalPlannerNode(Node):
             return cls(obstacle_threshold=ot)
 
         if cls is DStarLitePlanner:
-            return cls(obstacle_threshold=ot)
+            return cls(obstacle_threshold=ot, **_smooth_kwargs)
 
         if cls is RRTStarPlanner:
-            return cls(obstacle_threshold=ot)
+            return cls(obstacle_threshold=ot, **_smooth_kwargs)
 
         if cls is RLPlanner:
             return cls(obstacle_threshold=ot)

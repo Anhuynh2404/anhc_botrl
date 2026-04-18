@@ -41,12 +41,18 @@ class RRTStarPlanner(BasePlanner):
         goal_sample_rate: float = 0.1,
         search_radius: float = 1.0,
         obstacle_threshold: int = _OBSTACLE_THRESHOLD,
+        path_smooth_data_weight: float = 0.5,
+        path_smooth_smooth_weight: float = 0.3,
+        path_smooth_min_waypoints: int = 5,
     ) -> None:
         self._max_iterations = max_iterations
         self._step_size = step_size
         self._goal_sample_rate = goal_sample_rate
         self._search_radius = search_radius
         self._obstacle_threshold = obstacle_threshold
+        self._path_smooth_data_weight = path_smooth_data_weight
+        self._path_smooth_smooth_weight = path_smooth_smooth_weight
+        self._path_smooth_min_waypoints = path_smooth_min_waypoints
         self._stats: Dict = {}
 
     # ------------------------------------------------------------------
@@ -220,7 +226,12 @@ class RRTStarPlanner(BasePlanner):
             idx = parents[idx]
         path.reverse()
 
-        smoothed = self.smooth_path(path)
+        smoothed = self.smooth_path(
+            path,
+            data_weight=self._path_smooth_data_weight,
+            smooth_weight=self._path_smooth_smooth_weight,
+            min_waypoints=self._path_smooth_min_waypoints,
+        )
         length = self.path_length(smoothed)
         elapsed_ms = (time.monotonic() - t0) * 1e3
         self._record_stats(len(nodes), elapsed_ms, length)

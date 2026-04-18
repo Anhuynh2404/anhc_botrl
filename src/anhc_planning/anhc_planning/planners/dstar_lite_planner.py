@@ -49,9 +49,15 @@ class DStarLitePlanner(BasePlanner):
         self,
         obstacle_threshold: int = _OBSTACLE_THRESHOLD,
         allow_diagonal: bool = True,
+        path_smooth_data_weight: float = 0.5,
+        path_smooth_smooth_weight: float = 0.3,
+        path_smooth_min_waypoints: int = 5,
     ) -> None:
         self._obstacle_threshold = obstacle_threshold
         self._allow_diagonal = allow_diagonal
+        self._path_smooth_data_weight = path_smooth_data_weight
+        self._path_smooth_smooth_weight = path_smooth_smooth_weight
+        self._path_smooth_min_waypoints = path_smooth_min_waypoints
         self._stats: Dict = {}
 
         # D* Lite search state (initialised on first plan call)
@@ -194,7 +200,12 @@ class DStarLitePlanner(BasePlanner):
             self.grid_to_world(r, c, ox, oy, resolution)
             for r, c in path_cells
         ]
-        smoothed = self.smooth_path(world_path)
+        smoothed = self.smooth_path(
+            world_path,
+            data_weight=self._path_smooth_data_weight,
+            smooth_weight=self._path_smooth_smooth_weight,
+            min_waypoints=self._path_smooth_min_waypoints,
+        )
         length = self.path_length(smoothed)
         elapsed_ms = (time.monotonic() - t0) * 1e3
         self._record_stats(nodes_expanded, elapsed_ms, length)
