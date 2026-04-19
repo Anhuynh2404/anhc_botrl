@@ -30,6 +30,7 @@ setup(
     entry_points={
         'console_scripts': [
             'anhc_benchmark_runner_node = anhc_benchmark.anhc_benchmark_runner_node:main',
+            'anhc_benchmark_gz_obstacle_node = anhc_benchmark.anhc_benchmark_gz_obstacle_node:main',
             'anhc_live_metrics_node = anhc_benchmark.anhc_live_metrics_node:main',
             'anhc_results_analyzer_node = anhc_benchmark.anhc_results_analyzer_node:main',
         ],

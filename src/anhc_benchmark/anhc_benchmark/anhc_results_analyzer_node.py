@@ -1,8 +1,8 @@
 """Results analyzer node for the anhc autonomous vehicle benchmark.
 
-Reads the most recent CSV from ~/anhc_benchmark_results/, computes per-algorithm
-aggregated statistics, publishes a JSON summary on /benchmark/summary, and
-saves a Markdown report to ~/anhc_benchmark_results/report.md.
+Reads the most recent CSV from ``<output_dir>/raw/`` (default: workspace
+``bench_results``, same as ``anhc_benchmark.launch.py``), publishes
+``/benchmark/summary``, and writes ``<output_dir>/report.md``.
 """
 
 import glob
@@ -15,6 +15,8 @@ import rclpy
 from rclpy.node import Node
 from std_msgs.msg import String
 
+from anhc_benchmark.bench_paths import default_benchmark_output_dir
+
 _NUMERIC_METRICS = [
     "planning_time_ms",
     "path_length_m",
@@ -26,7 +28,7 @@ _NUMERIC_METRICS = [
     "memory_mb",
 ]
 
-_DEFAULT_OUTPUT_DIR = os.path.expanduser("~/anhc_benchmark_results")
+_DEFAULT_OUTPUT_DIR = default_benchmark_output_dir()
 
 
 class AnhcResultsAnalyzerNode(Node):
@@ -131,29 +133,56 @@ class AnhcResultsAnalyzerNode(Node):
         )
 
     def _latest_csv(self) -> str:
-        pattern = os.path.join(self._output_dir, "benchmark_*.csv")
-        files = sorted(glob.glob(pattern))
+        patterns = [
+            os.path.join(self._output_dir, "raw", "benchmark_*.csv"),
+            os.path.join(self._output_dir, "benchmark_*.csv"),
+        ]
+        files: list[str] = []
+        for pattern in patterns:
+            files.extend(glob.glob(pattern))
+        files = sorted(files)
         return files[-1] if files else ""
 
     @staticmethod
     def _normalize_schema(df: pd.DataFrame) -> pd.DataFrame:
-        """Ensure every required column exists, back-filling from existing data.
+        """Legacy runner CSV + BENCHMARK_PLAN_v1 CSV → unified columns for reports."""
+        df = df.copy()
 
-        ``planning_success`` was added in the v2 schema.  For v1 CSVs that lack
-        it the value is inferred conservatively:
-            - ``success == True``  → robot reached goal  → planner must have
-              produced a valid path  → planning_success = True
-            - ``path_length_m > 0`` → planner returned a path even if the robot
-              did not reach the goal (execution timeout, collision …)
-              → planning_success = True
-            - otherwise → planning_success = False  (no_path or timeout)
-        """
+        # BENCHMARK_PLAN_v1 raw CSV
+        if "L_planned_m" in df.columns and "algorithm_name" not in df.columns:
+            df["algorithm_name"] = df["algorithm"]
+            df["path_length_m"] = pd.to_numeric(
+                df["L_planned_m"], errors="coerce"
+            ).fillna(0.0)
+            df["planning_time_ms"] = pd.to_numeric(
+                df["Tc_ms"], errors="coerce"
+            ).fillna(0.0)
+            df["execution_time_s"] = pd.to_numeric(
+                df["Tg_s"], errors="coerce"
+            ).fillna(0.0)
+            # Legacy smoothness was Σ|Δθ| (rad); v1 stores S_rad_per_m
+            Lp = pd.to_numeric(df["L_planned_m"], errors="coerce").fillna(0.0)
+            Srm = pd.to_numeric(df["S_rad_per_m"], errors="coerce").fillna(0.0)
+            df["path_smoothness"] = Srm * Lp
+            df["clearance_avg_m"] = pd.to_numeric(
+                df["C_avg_m"], errors="coerce"
+            ).fillna(-1.0)
+            fr = df["failure_reason"].fillna("").astype(str)
+            df["planning_success"] = (Lp > 0.0) & (~fr.isin(["no_path", "planning_timeout"]))
+            df["collision"] = fr == "collision"
+            df["success"] = pd.to_numeric(df["success"], errors="coerce").fillna(0).astype(
+                bool
+            )
+            df["_scenario_group"] = df["scenario_id"].astype(str)
+        else:
+            df["_scenario_group"] = (
+                df["map_name"].astype(str) if "map_name" in df.columns else "default"
+            )
+
         if "planning_success" not in df.columns:
-            df = df.copy()
             inferred = df["success"].astype(bool) | (
                 pd.to_numeric(df["path_length_m"], errors="coerce").fillna(0.0) > 0
             )
-            # Insert at position matching the v2 schema (after nodes_expanded)
             insert_pos = (
                 df.columns.get_loc("nodes_expanded") + 1
                 if "nodes_expanded" in df.columns
@@ -253,7 +282,8 @@ class AnhcResultsAnalyzerNode(Node):
 
         # Per-scenario breakdown
         lines.append("## Per-Scenario Summary\n")
-        for scenario_name, sgrp in df.groupby("map_name"):
+        group_col = "_scenario_group" if "_scenario_group" in df.columns else "map_name"
+        for scenario_name, sgrp in df.groupby(group_col):
             lines.append(f"### {scenario_name}\n")
             lines.append(
                 f"Trials: {len(sgrp)} | "

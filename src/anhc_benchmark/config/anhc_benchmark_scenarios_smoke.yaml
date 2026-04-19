@@ -1,0 +1,49 @@
+# Smoke benchmark — BENCHMARK_PLAN_v1 §7 bước 2: 1 scenario × 2 algo × 2 trial → verify CSV.
+#
+# Terminal 1 — nav + sim (anhc_office_v2 không có map mặc định; cần map_file hoặc use_slam:=true):
+#   source install/setup.bash
+#   MAP_YAML="$(ros2 pkg prefix anhc_simulation)/maps/office_v2_map_01.yaml"
+#   (Cung thu muc `anhc_save_map.sh` ghi; file chi co sau khi luu map — HOW_TO_NAVIGATE.md muc 1.)
+#   ros2 launch anhc_simulation anhc_nav.launch.py \
+#     world:=anhc_office_v2 use_office_v2:=true use_slam:=false \
+#     map_file:="$MAP_YAML" use_rviz:=false
+#   (Đổi MAP_YAML nếu file map của bạn nằm nơi khác; xem docs/HOW_TO_NAVIGATE.md.)
+#
+# Terminal 2 — sau khi costmap/planner sẵn sàng (~30–60s):
+#   ros2 launch anhc_benchmark anhc_benchmark_smoke.launch.py
+#
+# Vẽ plot (sau khi runner kết thúc; mặc định output_dir = <workspace>/bench_results):
+#   python3 src/anhc_viz/scripts/anhc_plot_comparison.py \
+#     --csv "$(ls -t <workspace>/bench_results/raw/benchmark_*.csv | head -1)" \
+#     --out-dir <workspace>/bench_results/plots/
+
+common:
+  gz_world_name: anhc_office_v2_world
+  planning_timeout_ms: 10000
+  execution_timeout_s: 60
+  goal_tolerance_m: 0.30
+  robot_stuck_velocity_threshold: 0.01
+  robot_stuck_duration_s: 10.0
+  pause_between_trials_s: 1.0
+  pause_between_scenarios_s: 1.0
+  lethal_cost_threshold: 90
+  algorithms:
+    - astar
+    - dijkstra
+  stochastic_algorithms: []
+  # Khớp BENCHMARK_PLAN_v1 §7 bước 2: 1 scenario × 2 algo × 2 trial = 4 dòng CSV (+ header)
+  trials_deterministic: 2
+  trials_stochastic: 2
+  costmap_clear_on_reset: false
+
+scenarios:
+
+  smoke_straight:
+    name: "smoke_straight_short"
+    tag: "straight"
+    map: "anhc_office_v2"
+    start: {x: 3.06, y: 4.11, theta: -1.5708}
+    goal: {x: 4.363, y: -8.874, theta: 0.0}
+    execution_timeout_s: 300
+    trials_deterministic: 2
+    trials_stochastic: 2

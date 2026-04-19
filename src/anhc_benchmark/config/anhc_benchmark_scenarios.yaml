@@ -1,31 +1,111 @@
-# Benchmark scenario definitions for anhc_benchmark
-# Each scenario specifies start/goal poses, which algorithms to compare, and trial count.
+# Benchmark scenarios — docs/BENCHMARK_PLAN_v1.md
+# Frame: map (sim: map ≈ Gazebo world when using /initialpose in world frame).
+# Angles: rad, 0 = +X (East).
+#
+# Tọa độ (bước 2): robot spawn mặc định Gazebo ~(0, 0). Mesh office_v2.obj (mẫu ~200k đỉnh)
+# khoảng x ≈ -7…15 m (trục file); sau xoay trong SDF, vẫn nên kiểm RViz (2D Goal) trước
+# khi chạy full benchmark. Khi có map SLAM/AMCL riêng, cập nhật lại start/goal theo free space.
+#
+# Dynamic obstacle (bước 3): cần ``anhc_benchmark_gz_obstacle_node`` + bridge
+# ``/world/<gz_world_name>/{create,remove,set_pose}`` (xem anhc_nav.launch.py).
 
-scenario_1:
-  name: "short_path_clear"
-  start: [0.0, 0.0]
-  goal: [4.0, 0.0]
-  algorithms: [astar, dijkstra]
-  trials: 5
+common:
+  gz_world_name: anhc_office_v2_world
+  planning_timeout_ms: 10000
+  execution_timeout_s: 160
+  goal_tolerance_m: 0.30
+  robot_stuck_velocity_threshold: 0.01
+  robot_stuck_duration_s: 10.0
+  pause_between_trials_s: 3.0
+  pause_between_scenarios_s: 5.0
+  lethal_cost_threshold: 90
+  algorithms:
+    - astar
+    - dijkstra
+    - greedy_bfs
+    - theta_star
+    - jps
+    - rrt_star
+    - dstar_lite
+    - prm
+  stochastic_algorithms:
+    - rrt_star
+    - prm
+  costmap_clear_on_reset: false
 
-scenario_2:
-  name: "long_path_with_obstacles"
-  start: [0.0, 0.0]
-  goal: [8.0, 6.0]
-  algorithms: [astar, dijkstra]
-  trials: 5
+reproducibility:
+  random_seed: 42
+  gz_pause_before_start_s: 2.0
+  robot_reset_method: initialpose
+  robot_reset_timeout_s: 0.5
+  use_sim_time: true
 
-scenario_3:
-  name: "narrow_corridor"
-  start: [1.0, 1.0]
-  goal: [9.0, -5.0]
-  algorithms: [astar, dijkstra]
-  trials: 3
+scenarios:
 
-scenario_4:
-  name: "office_v2_cross_room"
-  map_file: "anhc_office_v2_map"    # used as label; actual file set via launch arg
-  start: [0.0, 0.0]
-  goal: [5.0, 5.0]                  # update after inspecting actual map
-  algorithms: [astar, dijkstra, theta_star, greedy_bfs, jps, rrt_star, dstar_lite, prm]
-  trials: 3
+  scenario_1:
+    name: "straight_short"
+    tag: "straight"
+    map: "anhc_office_v2"
+    start: {x: 0.0, y: 0.0, theta: 0.0}
+    goal: {x: 8.0, y: 0.0, theta: 0.0}
+    trials_deterministic: 5
+    trials_stochastic: 20
+
+  scenario_2:
+    name: "single_turn_90deg"
+    tag: "single_turn"
+    map: "anhc_office_v2"
+    start: {x: 0.0, y: 0.0, theta: 0.0}
+    goal: {x: 6.42551326751709, y: 7.196953773498535, theta: 0.0}
+    trials_deterministic: 5
+    trials_stochastic: 20
+
+  scenario_3:
+    name: "long_multi_obstacle"
+    tag: "long_range"
+    map: "anhc_office_v2"
+    start: {x: 5.033462047576904, y: -0.6205399036407471, theta: -1.5707963267948966}
+    goal: {x: 3.8101, y: -8.8955, theta: 0.0}
+    trials_deterministic: 5
+    trials_stochastic: 20
+
+  scenario_4:
+    name: "narrow_corridor"
+    tag: "narrow"
+    map: "anhc_office_v2"
+    start: {x: -4.6743, y: 7.0688, theta: 0.0}
+    goal: {x: -5.8754, y: 9.3762, theta: 0.0}
+    trials_deterministic: 5
+    trials_stochastic: 20
+
+  scenario_5:
+    name: "u_turn_required"
+    tag: "multi_turn"
+    map: "anhc_office_v2"
+    start: {x: 5.4675, y: -0.4117, theta: 0.0}
+    goal: {x: -0.7258, y: -0.1630, theta: 0.0}
+    trials_deterministic: 5
+    trials_stochastic: 20
+
+  scenario_6:
+    name: "multi_room_doors"
+    tag: "multi_turn"
+    map: "anhc_office_v2"
+    start: {x: 4.7131, y: 3.1482, theta: 0.0}
+    goal: {x: 10.3400, y: -3.1807, theta: 0.0}
+    trials_deterministic: 5
+    trials_stochastic: 20
+
+  scenario_7:
+    name: "dynamic_obstacle"
+    tag: "dynamic"
+    map: "anhc_office_v2"
+    start: {x: 0.0, y: 0.0, theta: 0.0}
+    goal: {x: 8.0, y: 0.0, theta: 0.0}
+    trials_deterministic: 5
+    trials_stochastic: 20
+    dynamic_obstacle:
+      spawn: {x: 4.0, y: 1.25, z: 0.35, theta: 0.0}
+      size: {x: 0.4, y: 0.4, z: 0.55}
+      velocity: {x: 0.0, y: -0.35}
+      activate_after_s: 3.0
