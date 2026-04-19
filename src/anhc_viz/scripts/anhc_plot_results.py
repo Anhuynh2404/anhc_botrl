@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Generate comparison plots from the latest anhc benchmark CSV.
 
-Plots produced (PNG, saved to ~/anhc_benchmark_results/plots/):
+Plots produced (PNG, default ``<workspace>/bench_results/plots/`` — same base
+as ``anhc_benchmark.launch.py``):
   1. Bar chart — mean planning_time_ms ± std per algorithm
   2. Bar chart — mean path_length_m ± std per algorithm
   3. Bar chart — mean nodes_expanded ± std per algorithm
@@ -16,6 +17,7 @@ import argparse
 import glob
 import os
 import sys
+from pathlib import Path
 
 import os as _os
 
@@ -34,7 +36,21 @@ import matplotlib.pyplot as plt  # noqa: E402
 import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
 
-_DEFAULT_RESULTS_DIR = os.path.expanduser("~/anhc_benchmark_results")
+
+def _default_results_base_dir() -> str:
+    """``<workspace>/bench_results`` — same walk as ``anhc_benchmark.bench_paths``."""
+    cur = Path(__file__).resolve().parent
+    for _ in range(18):
+        if (cur / "src" / "anhc_benchmark").is_dir():
+            return str((cur / "bench_results").resolve())
+        parent = cur.parent
+        if parent == cur:
+            break
+        cur = parent
+    return str(Path.home() / "anhc_botrl" / "bench_results")
+
+
+_DEFAULT_RESULTS_DIR = _default_results_base_dir()
 _ALGO_COLORS = [
     "#2196F3",  # blue   — astar
     "#FF5722",  # orange — dijkstra
@@ -46,11 +62,11 @@ _ALGO_COLORS = [
 
 
 def _latest_csv(results_dir: str) -> str:
-    pattern = os.path.join(results_dir, "benchmark_*.csv")
-    files = sorted(glob.glob(pattern))
-    if not files:
-        return ""
-    return files[-1]
+    files = sorted(
+        glob.glob(os.path.join(results_dir, "raw", "benchmark_*.csv"))
+        + glob.glob(os.path.join(results_dir, "benchmark_*.csv"))
+    )
+    return files[-1] if files else ""
 
 
 def _normalize_schema(df: pd.DataFrame) -> pd.DataFrame:
@@ -153,7 +169,10 @@ def main() -> None:
     parser.add_argument(
         "--csv",
         default="",
-        help="Path to a specific CSV file. Defaults to the latest in ~/anhc_benchmark_results/.",
+        help=(
+            "Path to a specific CSV file. Defaults to the latest under "
+            "<workspace>/bench_results/raw/ (see anhc_benchmark.launch.py)."
+        ),
     )
     parser.add_argument(
         "--output-dir",

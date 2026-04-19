@@ -30,6 +30,7 @@ setup(
     entry_points={
         'console_scripts': [
             'anhc_dashboard_panel = anhc_viz.anhc_dashboard_panel:main',
+            'costmap_color_relay = anhc_viz.costmap_color_relay:main',
         ],
     },
 )

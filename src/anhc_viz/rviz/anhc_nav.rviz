@@ -27,9 +27,9 @@ Visualization Manager:
       Use Timestamp: false
       Value: true
 
-    - Alpha: 0.65
+    - Alpha: 0.7
       Class: rviz_default_plugins/Map
-      Color Scheme: costmap
+      Color Scheme: map
       Draw Behind: false
       Enabled: true
       Name: Costmap
@@ -40,6 +40,21 @@ Visualization Manager:
         Reliability Policy: Reliable
         Value: /costmap/global
       Use Timestamp: false
+      Value: true
+
+    - Class: rviz_default_plugins/Image
+      Enabled: true
+      Max Value: 1
+      Median window: 5
+      Min Value: 0
+      Name: Costmap Visual
+      Normalize Range: true
+      Topic:
+        Depth: 5
+        Durability Policy: Transient Local
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /costmap/visual
       Value: true
 
     - Class: rviz_default_plugins/LaserScan
