@@ -5,7 +5,8 @@ Stack order (high level):
      odom TF, scan relay, spawn, static GZ→URDF frames (nodes 1–4 in the spec).
   2) IMU filter + EKF → ``/odometry/filtered`` (required by the path follower).
   3) ``map_server`` + lifecycle manager.
-  4) ``anhc_global_costmap_node`` → ``/costmap/global``.
+  4) ``anhc_global_costmap_node`` → ``/costmap/global``; with RViz,
+     ``costmap_color_relay`` → ``/costmap/visual`` (pastel Image panel).
   5) Localization: ``slam_toolbox`` *localization* if ``<map>.posegraph`` and
      ``<map>.data`` exist beside the map YAML; otherwise ``nav2_amcl`` (typical
      for ``.pgm`` / ``.yaml`` maps).
@@ -446,6 +447,14 @@ def generate_launch_description() -> LaunchDescription:
                 name="anhc_global_costmap_node",
                 output="screen",
                 parameters=[{"use_sim_time": True}],
+            ),
+            Node(
+                package="anhc_viz",
+                executable="costmap_color_relay",
+                name="costmap_color_relay",
+                output="screen",
+                parameters=[{"use_sim_time": True}],
+                condition=IfCondition(LaunchConfiguration("use_rviz")),
             ),
             Node(
                 package="anhc_planning",
