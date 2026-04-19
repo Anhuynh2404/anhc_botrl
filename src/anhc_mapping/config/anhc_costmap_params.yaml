@@ -4,7 +4,7 @@ anhc_global_costmap_node:
     inflation_band_1: 0.45
     inflation_band_2: 0.70
     inflation_band_3: 1.00
-    inflation_band_4: 1.40
+    inflation_band_4: 1.20
     use_discrete_bands: true
     cost_scaling_factor: 3.0
 

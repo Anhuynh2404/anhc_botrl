@@ -7,12 +7,12 @@ Publishes:   /costmap/global         (OccupancyGrid — inflated global costmap)
 
 Re-inflates every time the SLAM map is updated.
 When use_discrete_bands=true, produces a banded gradient:
-  ≤ robot_radius         → 100 (lethal        — red)
-  robot_radius .. band_1 →  75 (inscribed      — yellow)
-  band_1 .. band_2       →  55 (caution        — green-yellow)
-  band_2 .. band_3       →  35 (mild           — cyan-green)
-  band_3 .. band_4       →  15 (slight penalty — soft blue)
-  > band_4               →   0 (free           — white)
+  ≤ robot_radius         → 100 (lethal)
+  robot_radius .. band_1 →  80
+  band_1 .. band_2       →  60
+  band_2 .. band_3       →  40
+  band_3 .. band_4       →  20
+  > band_4               →   0 (free)
 """
 
 import json
@@ -53,7 +53,7 @@ class AhncGlobalCostmapNode(Node):
         self.declare_parameter('inflation_band_1', 0.45)
         self.declare_parameter('inflation_band_2', 0.70)
         self.declare_parameter('inflation_band_3', 1.00)
-        self.declare_parameter('inflation_band_4', 1.40)
+        self.declare_parameter('inflation_band_4', 1.20)
         self.declare_parameter('use_discrete_bands', True)
         self.declare_parameter('cost_scaling_factor', 3.0)
         # Legacy parameter kept for backward compatibility
@@ -66,7 +66,10 @@ class AhncGlobalCostmapNode(Node):
         self._meta_pub = self.create_publisher(
             String, '/costmap/global/metadata', _MAP_QOS)
 
-        self._log_band_config()
+        self._last_logged_params: tuple | None = None
+        _p0 = self._read_params()
+        self._emit_band_log(*_p0)
+        self._last_logged_params = _p0
         self.get_logger().info('anhc_global_costmap_node started')
 
     # ------------------------------------------------------------------
@@ -82,24 +85,33 @@ class AhncGlobalCostmapNode(Node):
         infl_r = self.get_parameter('inflation_radius').value
         return robot_r, band_1, band_2, band_3, band_4, use_bands, scale, infl_r
 
-    def _log_band_config(self):
-        robot_r, b1, b2, b3, b4, use_bands, scale, _ = self._read_params()
+    def _emit_band_log(
+        self,
+        robot_r,
+        b1,
+        b2,
+        b3,
+        b4,
+        use_bands,
+        scale,
+        infl_r,
+    ):
         if use_bands:
             self.get_logger().info(
-                f'Costmap bands (discrete): lethal≤{robot_r}m | '
-                f'80≤{b1}m | 60≤{b2}m | 40≤{b3}m | 20≤{b4}m | 0=free'
+                f'Costmap bands: lethal={robot_r}m | 80={b1}m | 60={b2}m | '
+                f'40={b3}m | 20={b4}m'
             )
         else:
             self.get_logger().info(
                 f'Costmap mode: exponential decay (cost_scaling_factor={scale}, '
-                f'inflation_radius={self.get_parameter("inflation_radius").value}m)'
+                f'inflation_radius={infl_r}m)'
             )
 
     def _publish_metadata(self, robot_r, b1, b2, b3, b4):
         meta = {
             'robot_radius': robot_r,
             'bands': [b1, b2, b3, b4],
-            'costs': [100, 75, 55, 35, 15, 0],
+            'costs': [100, 80, 60, 40, 20, 0],
         }
         msg = String()
         msg.data = json.dumps(meta)
@@ -109,6 +121,28 @@ class AhncGlobalCostmapNode(Node):
     def _map_cb(self, msg: OccupancyGrid) -> None:
         # Re-read parameters on every callback so runtime ros2 param set takes effect immediately
         robot_r, band_1, band_2, band_3, band_4, use_bands, scale, infl_r = self._read_params()
+        log_key = (
+            robot_r,
+            band_1,
+            band_2,
+            band_3,
+            band_4,
+            use_bands,
+            scale,
+            infl_r,
+        )
+        if log_key != self._last_logged_params:
+            self._emit_band_log(
+                robot_r,
+                band_1,
+                band_2,
+                band_3,
+                band_4,
+                use_bands,
+                scale,
+                infl_r,
+            )
+            self._last_logged_params = log_key
 
         info = msg.info
         w, h, res = info.width, info.height, info.resolution
@@ -119,24 +153,12 @@ class AhncGlobalCostmapNode(Node):
         cost = np.zeros((h, w), dtype=np.int8)
 
         if use_bands and _SCIPY_OK:
-            # Euclidean distance to nearest obstacle in metres
             dist_m = distance_transform_edt(~obstacles) * res
-
-            # Assign banded costs using vectorised numpy operations.
-            # Values chosen for soft, eye-friendly colours on the RViz costmap scheme
-            # (blue→green→yellow→red as value increases 0→100):
-            #   100 = red         (lethal)   — only harsh colour, clearly dangerous
-            #    75 = yellow       (inscribed) — warm but not alarming
-            #    55 = green-yellow (caution)   — neutral warm-green
-            #    35 = cyan-green   (mild)      — cool, easy on the eye
-            #    15 = soft blue    (slight)    — barely tinted, near-free appearance
-            #     0 = white        (free)
             cost[dist_m <= robot_r] = 100
-            cost[(dist_m > robot_r)  & (dist_m <= band_1)] = 75
-            cost[(dist_m > band_1)   & (dist_m <= band_2)] = 55
-            cost[(dist_m > band_2)   & (dist_m <= band_3)] = 35
-            cost[(dist_m > band_3)   & (dist_m <= band_4)] = 15
-            # Beyond band_4 remains 0 (already initialised)
+            cost[(dist_m > robot_r) & (dist_m <= band_1)] = 80
+            cost[(dist_m > band_1) & (dist_m <= band_2)] = 60
+            cost[(dist_m > band_2) & (dist_m <= band_3)] = 40
+            cost[(dist_m > band_3) & (dist_m <= band_4)] = 20
 
         elif _SCIPY_OK:
             # Legacy exponential fallback
