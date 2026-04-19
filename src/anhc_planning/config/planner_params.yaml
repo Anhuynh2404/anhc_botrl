@@ -2,13 +2,11 @@ anhc_global_planner:
   ros__parameters:
     use_sim_time: true
     algorithm: "astar"
-    # obstacle_cost_threshold options (matches banded costmap values):
-    #   100 → robot passes through all cost zones (hugs walls)
-    #    75 → robot avoids inscribed zone (cost≥75, ≤robot_radius+band_1)
-    #    55 → robot avoids caution zone (cost≥55, recommended default — ≥band_2 clearance)
-    #    35 → robot keeps large clearance (avoids mild zone, ≥band_3)
-    #    15 → robot keeps maximum clearance (avoids all coloured cells)
-    obstacle_cost_threshold: 55
+    # obstacle_cost_threshold: cell is free iff cost < threshold (see base_planner.is_valid_cell).
+    #   100 → only lethal (100) blocked; hugs walls / inflation-80 band
+    #    80 → blocks cost ≥80 (current)
+    #    60 → stricter clearance (≥ inflation_band_2)
+    obstacle_cost_threshold: 80
     # Slightly more smoothing → gentler turns in map frame (path follower still limits speed in curves).
     path_smooth_data_weight: 0.62
     path_smooth_smooth_weight: 0.15
@@ -31,7 +29,7 @@ anhc_global_planner:
       allow_diagonal: true
     # JPS uses the same obstacle_cost_threshold as other planners (see anhc_global_planner above).
     jps:
-      obstacle_threshold: 55
+      obstacle_threshold: 80
     prm:
       n_samples: 1000          # tăng để phủ map tốt hơn
       connection_radius: 2.0   # tăng để graph liên thông hơn

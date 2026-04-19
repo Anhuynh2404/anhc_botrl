@@ -93,12 +93,12 @@ class AnhcGlobalPlannerNode(Node):
         )
         self.declare_parameter(
             "obstacle_cost_threshold",
-            55,
+            80,
             ParameterDescriptor(
                 type=ParameterType.PARAMETER_INTEGER,
                 description=(
                     "Cells with cost >= threshold are treated as obstacles. "
-                    "55 = avoids caution zone (cost≥55), giving ≥inflation_band_2 clearance from walls."
+                    "80 = allows costs 0–79 (e.g. 20/40/60 bands); blocks 80 and 100."
                 ),
             ),
         )
