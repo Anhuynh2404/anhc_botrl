@@ -46,12 +46,14 @@ source install/setup.bash
 bash scripts/anhc_save_map.sh office_v2_map_01
 ```
 
-Map duoc luu tai:
+Map duoc luu tai (thuong la `install/anhc_simulation/maps` khi dung script duoi day):
 
 ```bash
 MAP_DIR=$(ros2 pkg prefix anhc_simulation)/maps
 echo "$MAP_DIR/office_v2_map_01.yaml"
 ```
+
+**Khac voi map co san trong package:** file trong `src/anhc_simulation/maps` sau `colcon build` duoc copy vao `.../share/anhc_simulation/maps`. Map ban luu bang `map_saver_cli` / `anhc_save_map.sh` nam duoi `.../maps` (khong co `share`).
 
 ---
 
@@ -147,4 +149,70 @@ Kiem tra scan va TF:
 ```bash
 ros2 topic hz /scan
 ros2 topic echo /tf --once
+
 ```
+# HOW TO RUN BENCHMARK
+Terminal 1 — stack điều hướng (office v2 + map đã lưu)
+```bash
+source install/setup.bash
+MAP_YAML="$(ros2 pkg prefix anhc_simulation)/maps/office_v2_map_01.yaml"
+ros2 launch anhc_simulation anhc_nav.launch.py \
+  world:=anhc_office_v2 \
+  use_office_v2:=true \
+  use_slam:=false \
+  map_file:="$MAP_YAML" \
+  use_rviz:=false
+
+```
+Chờ costmap / planner sẵn sàng (thường vài chục giây).
+
+Terminal 2 - smoke test
+```bash
+cd ~/anhc_botrl
+source /opt/ros/jazzy/setup.bash
+source install/setup.bash
+ros2 launch anhc_benchmark anhc_benchmark_smoke.launch.py
+```
+Terminal 2 — full benchmark
+
+```bash
+cd ~/anhc_botrl
+source /opt/ros/jazzy/setup.bash
+source install/setup.bash
+ros2 launch anhc_benchmark anhc_benchmark.launch.py
+```
+# Xem tọa độ map
+ 2D Pose Estimate → topic /initialpose (geometry_msgs/msg/PoseWithCovarianceStamped)
+ 2D Goal Pose → topic /goal_pose (geometry_msgs/msg/PoseStamped)
+Xem từng lần bấm (echo liên tục)
+Terminal đã source install/setup.bash, chạy:
+```bash
+ros2 topic echo /initialpose
+ros2 topic echo /goal_pose
+```
+Bấm công cụ tương ứng trên RViz — mỗi lần bấm sẽ in một message: xem pose.pose.position (x, y) và pose.pose.orientation ( quaternion → hướng).
+
+Chỉ in một message rồi dừng
+```bash
+ros2 topic echo /initialpose --once
+ros2 topic echo /goal_pose --once
+```
+(Hữu ích khi bạn bấm xong rồi mới chạy lệnh — hoặc chạy trước rồi bấm một lần.)
+
+Góc yaw từ quaternion (tùy chọn)
+Nếu cần số yaw (rad) giống YAML scenario:
+```bash
+python3 - <<'PY'
+import math
+from geometry_msgs.msg import Quaternion
+def yaw_from_q(q: Quaternion) -> float:
+    siny_cosp = 2.0 * (q.w * q.z + q.x * q.y)
+    cosy_cosp = 1.0 - 2.0 * (q.y * q.y + q.z * q.z)
+    return math.atan2(siny_cosp, cosy_cosp)
+# Dán quaternion từ dòng echo vào đây:
+q = Quaternion(x=0.0, y=0.0, z=0.0, w=1.0)
+print("yaw_rad:", yaw_from_q(q))
+```
+Lưu ý: AMCL nhận pose đã qua bridge trên /initialpose_synced. Để debug đúng pose vào AMCL thì có thể echo thêm:
+
+ros2 topic echo /initialpose_synced
