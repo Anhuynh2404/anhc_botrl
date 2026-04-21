@@ -15,6 +15,8 @@ dist/
 .eggs/
 *.egg
 .pytest_cache/
+.venv/
+venv/
 
 # C++ / CMake
 *.o
@@ -41,6 +43,7 @@ cmake_install.cmake
 *.log
 *.tmp
 *.bak
+ros_log/
 
 # TF debug artifacts (tf2_tools view_frames)
 frames_*.pdf
@@ -51,3 +54,10 @@ frames_*.gv
 
 # Large asset (GitHub >100MB)
 src/anhc_simulation/models/office_v2.obj
+
+# Training / benchmark artifacts
+models/
+src/anhc_rl/models/
+src/anhc_rl/logs/
+bench_results/raw/
+bench_results/.roslog/
