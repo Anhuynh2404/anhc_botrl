@@ -122,6 +122,57 @@ ros2 launch anhc_simulation anhc_nav.launch.py \
 
 ---
 
+## 2.1) Chay navigation trong moi truong factory (OBJ + MTL)
+
+`factory` la moi truong moi dung mesh `src/anhc_simulation/models/factory.obj` + `factory.mtl`.
+Launch da co shorthand `use_factory:=true` de tu set:
+- `world:=anhc_factory`
+- `gz_world_name:=anhc_factory_world`
+- `use_slam:=true`
+
+### Chay nhanh voi anhc_nav (khuyen nghi)
+
+```bash
+cd ~/anhc_botrl
+source /opt/ros/jazzy/setup.bash
+source install/setup.bash
+
+ros2 launch anhc_simulation anhc_nav.launch.py \
+  use_factory:=true \
+  algorithm:=astar \
+  use_rviz:=true
+```
+
+### Doi thuat toan trong factory
+
+```bash
+ros2 launch anhc_simulation anhc_nav.launch.py \
+  use_factory:=true \
+  algorithm:=theta_star \
+  use_rviz:=true
+```
+
+Co the thay `algorithm:=theta_star` bang: `astar`, `dijkstra`, `greedy_bfs`, `jps`, `rrt_star`, `dstar_lite`, `prm`, `rl`.
+
+### Chay full stack voi anhc_master
+
+```bash
+cd ~/anhc_botrl
+source /opt/ros/jazzy/setup.bash
+source install/setup.bash
+
+ros2 launch anhc_simulation anhc_master.launch.py \
+  use_factory:=true \
+  algorithm:=astar \
+  use_rviz:=true
+```
+
+Luu y:
+- Hien tai chua co static map `anhc_factory_map.yaml` trong package, nen factory mac dinh chay `use_slam:=true`.
+- Neu sau nay ban save map factory, co the chay lai voi `use_slam:=false` + `map_file:=<duong_dan_map.yaml>`.
+
+---
+
 ## 3) Doi thuat toan khong restart
 
 ```bash
@@ -181,6 +232,14 @@ source /opt/ros/jazzy/setup.bash
 source install/setup.bash
 ros2 launch anhc_benchmark anhc_benchmark.launch.py
 ```
+
+```bash
+cd ~/anhc_botrl
+source install/setup.bash
+ros2 launch anhc_benchmark anhc_benchmark_smoke.launch.py \
+  scenario_file:=/home/anhuynh/anhc_botrl/src/anhc_benchmark/config/anhc_benchmark_scenarios_dynamic_smoke.yaml \
+  output_dir:=/home/anhuynh/anhc_botrl/bench_results
+```
 # Xem tọa độ map
  2D Pose Estimate → topic /initialpose (geometry_msgs/msg/PoseWithCovarianceStamped)
  2D Goal Pose → topic /goal_pose (geometry_msgs/msg/PoseStamped)
@@ -216,3 +275,24 @@ print("yaw_rad:", yaw_from_q(q))
 Lưu ý: AMCL nhận pose đã qua bridge trên /initialpose_synced. Để debug đúng pose vào AMCL thì có thể echo thêm:
 
 ros2 topic echo /initialpose_synced
+
+Sinh plots no_s7
+```bash
+./scripts/plot_no_s7.sh
+```
+2) Sinh report no_s7
+```bash
+./scripts/generate_report_no_s7.sh
+```
+
+## PPO benchmark phase 1
+
+Runbook chi tiet cho train/eval PPO tai:
+
+- `docs/PPO_PHASE1_RUNBOOK.md`
+
+Script chinh:
+
+- `scripts/train_ppo_static.sh`
+- `scripts/train_ppo_dynamic_smoke.sh`
+- `scripts/eval_ppo_benchmark.sh`

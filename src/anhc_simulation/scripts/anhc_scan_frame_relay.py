@@ -48,16 +48,11 @@ class ScanFrameRelay(Node):
     def _cb(self, msg: LaserScan) -> None:
         now = self.get_clock().now()
         st = Time.from_msg(msg.header.stamp)
-        # Gazebo bridge can emit zero/old stamps during startup. If we drop those,
-        # /scan appears dead and slam_toolbox never publishes map->odom.
+        # Gazebo bridge can emit zero stamp during startup.
+        # Keep startup alive by stamping only that case; otherwise preserve original
+        # sensor time to keep scan<->TF matching deterministic for slam_toolbox.
         if st.nanoseconds == 0:
             msg.header.stamp = now.to_msg()
-        elif now.nanoseconds > 0:
-            age_ns = now.nanoseconds - st.nanoseconds
-            # Keep a stale guard for genuinely old scans, but do not reject startup
-            # transients where sim clock and sensor timestamp briefly race.
-            if age_ns > 5_000_000_000:
-                msg.header.stamp = now.to_msg()
         msg.header.frame_id = self._frame
         self._pub.publish(msg)
 

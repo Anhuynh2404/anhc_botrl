@@ -1,14 +1,15 @@
 <?xml version="1.0"?>
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro">
-  <gazebo reference="front_left_wheel">  <mu1>1.2</mu1><mu2>1.2</mu2><kp>100000.0</kp><kd>10.0</kd> </gazebo>
-  <gazebo reference="front_right_wheel"> <mu1>1.2</mu1><mu2>1.2</mu2><kp>100000.0</kp><kd>10.0</kd> </gazebo>
-  <gazebo reference="back_left_wheel">   <mu1>1.2</mu1><mu2>1.2</mu2><kp>100000.0</kp><kd>10.0</kd> </gazebo>
-  <gazebo reference="back_right_wheel">  <mu1>1.2</mu1><mu2>1.2</mu2><kp>100000.0</kp><kd>10.0</kd> </gazebo>
+  <gazebo reference="front_left_wheel">  <mu1>1.8</mu1><mu2>1.8</mu2><kp>100000.0</kp><kd>20.0</kd> </gazebo>
+  <gazebo reference="front_right_wheel"> <mu1>1.8</mu1><mu2>1.8</mu2><kp>100000.0</kp><kd>20.0</kd> </gazebo>
+  <gazebo reference="back_left_wheel">   <mu1>1.8</mu1><mu2>1.8</mu2><kp>100000.0</kp><kd>20.0</kd> </gazebo>
+  <gazebo reference="back_right_wheel">  <mu1>1.8</mu1><mu2>1.8</mu2><kp>100000.0</kp><kd>20.0</kd> </gazebo>
   <gazebo reference="lidar_link">
     <sensor name="anhc_lidar" type="gpu_lidar">
       <pose>0 0 0 0 0 0</pose>
       <topic>lidar</topic>
-      <update_rate>10</update_rate>
+      <!-- 10 Hz is too sparse for smooth SLAM while moving in large indoor scenes. -->
+      <update_rate>20</update_rate>
       <always_on>true</always_on>
       <visualize>false</visualize>
       <gz_frame_id>lidar_link</gz_frame_id>
@@ -34,7 +35,7 @@
         <noise>
           <type>gaussian</type>
           <mean>0.0</mean>
-          <stddev>0.01</stddev>
+          <stddev>0.003</stddev>
         </noise>
       </ray>
     </sensor>

@@ -1,0 +1,70 @@
+slam_toolbox:
+  ros__parameters:
+    use_sim_time: true
+    mode: mapping
+    use_map_saver: false
+
+    solver_plugin: solver_plugins::CeresSolver
+    ceres_linear_solver: SPARSE_NORMAL_CHOLESKY
+    ceres_preconditioner: SCHUR_JACOBI
+    ceres_trust_strategy: LEVENBERG_MARQUARDT
+    ceres_dogleg_type: TRADITIONAL_DOGLEG
+    ceres_loss_function: None
+
+    odom_frame: odom
+    map_frame: map
+    base_frame: base_footprint
+    scan_topic: /scan
+
+    # Factory mesh is broad and repetitive; keep larger queues and slower updates.
+    scan_queue_size: 150
+    throttle_scans: 1
+
+    use_scan_matching: true
+    use_scan_barycenter: false
+    minimum_travel_distance: 0.20
+    minimum_travel_heading: 0.30
+    scan_buffer_size: 25
+    scan_buffer_maximum_scan_distance: 6.0
+    link_match_minimum_response_fine: 0.20
+    link_scan_maximum_distance: 0.9
+
+    # Prioritize local stability during teleop mapping.
+    do_loop_closing: false
+    loop_search_maximum_distance: 8.0
+    loop_match_minimum_chain_size: 10
+    loop_match_maximum_variance_covariance: 3.0
+    loop_match_minimum_response_coarse: 0.40
+    loop_match_minimum_response_fine: 0.50
+
+    # Restrict translational search to reduce corridor-wise lateral "sliding".
+    correlation_search_space_dimension: 0.20
+    correlation_search_space_resolution: 0.01
+    correlation_search_space_smear_deviation: 0.08
+
+    loop_search_space_dimension: 10.0
+    loop_search_space_resolution: 0.05
+    loop_search_space_smear_deviation: 0.03
+
+    # Trust odometry more when geometry is repetitive (long straight corridors).
+    distance_variance_penalty: 1.8
+    angle_variance_penalty: 2.5
+    fine_search_angle_offset: 0.00349
+    coarse_search_angle_offset: 0.349
+    coarse_angle_resolution: 0.0349
+    minimum_angle_penalty: 1.2
+    minimum_distance_penalty: 1.1
+    use_response_expansion: true
+
+    resolution: 0.05
+    map_update_interval: 0.50
+    publish_period_sec: 1.0
+    max_laser_range: 18.0
+    minimum_laser_range: 0.15
+    minimum_time_interval: 0.50
+
+    transform_publish_period: 0.10
+    transform_timeout: 1.2
+    tf_buffer_duration: 90.0
+    stack_size_to_use: 40000000
+    enable_interactive_mode: false

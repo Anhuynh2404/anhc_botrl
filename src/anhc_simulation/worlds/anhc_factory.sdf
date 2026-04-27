@@ -1,0 +1,85 @@
+<?xml version="1.0" ?>
+<sdf version="1.10">
+  <world name="anhc_factory_world">
+    <gravity>0 0 -9.81</gravity>
+    <physics name="1ms" type="ode">
+      <max_step_size>0.001</max_step_size>
+      <real_time_factor>1.0</real_time_factor>
+      <real_time_update_rate>1000</real_time_update_rate>
+    </physics>
+
+    <plugin filename="gz-sim-physics-system" name="gz::sim::systems::Physics"/>
+    <plugin filename="gz-sim-user-commands-system" name="gz::sim::systems::UserCommands"/>
+    <plugin filename="gz-sim-scene-broadcaster-system" name="gz::sim::systems::SceneBroadcaster"/>
+    <plugin filename="gz-sim-sensors-system" name="gz::sim::systems::Sensors">
+      <render_engine>ogre</render_engine>
+    </plugin>
+    <plugin filename="gz-sim-imu-system" name="gz::sim::systems::Imu"/>
+
+    <light type="directional" name="sun">
+      <pose>0 0 10 0 0 0</pose>
+      <cast_shadows>true</cast_shadows>
+      <diffuse>0.75 0.75 0.75 1</diffuse>
+      <specular>0.15 0.15 0.15 1</specular>
+      <direction>-0.5 0.2 -1</direction>
+    </light>
+    <scene>
+      <ambient>0.18 0.18 0.20 1</ambient>
+      <background>0.15 0.15 0.18 1</background>
+      <shadows>true</shadows>
+    </scene>
+
+    <model name="floor">
+      <static>true</static>
+      <link name="floor_link">
+        <collision name="collision">
+          <geometry>
+            <plane>
+              <normal>0 0 1</normal>
+              <size>100 100</size>
+            </plane>
+          </geometry>
+          <surface>
+            <friction>
+              <ode>
+                <mu>1.0</mu>
+                <mu2>1.0</mu2>
+              </ode>
+            </friction>
+          </surface>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <plane>
+              <normal>0 0 1</normal>
+              <size>100 100</size>
+            </plane>
+          </geometry>
+          <material>
+            <ambient>0.25 0.25 0.25 1</ambient>
+            <diffuse>0.35 0.35 0.35 1</diffuse>
+            <specular>0.02 0.02 0.02 1</specular>
+          </material>
+        </visual>
+      </link>
+      <pose>0 0 0 0 0 0</pose>
+    </model>
+
+    <model name="factory_env">
+      <static>true</static>
+      <!-- Keep original OBJ/MTL shading; do not override visual material in SDF. -->
+      <pose>0 0 0 1.57079632679 0 0</pose>
+      <link name="link">
+        <!-- Collision mesh disabled to keep navigation stable on dense CAD geometry. -->
+        <visual name="visual">
+          <geometry>
+            <mesh>
+              <uri>../models/factory.obj</uri>
+              <scale>1 1 1</scale>
+            </mesh>
+          </geometry>
+        </visual>
+      </link>
+    </model>
+  </world>
+</sdf>

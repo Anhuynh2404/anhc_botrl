@@ -58,6 +58,7 @@ _AUTO = "__auto__"
 _WORLD_DEFAULTS: dict[str, tuple[str, str]] = {
     "anhc_indoor": ("anhc_indoor_world", "anhc_indoor_map.yaml"),
     "anhc_office_v2": ("anhc_office_v2_world", ""),
+    "anhc_factory": ("anhc_factory_world", ""),
     "anhc_office": ("anhc_office_world", "anhc_office_map.yaml"),
 }
 
@@ -73,6 +74,18 @@ def _apply_office_v2_shorthand(context):
     return [
         SetLaunchConfiguration("world", "anhc_office_v2"),
         SetLaunchConfiguration("gz_world_name", "anhc_office_v2_world"),
+    ]
+
+
+def _apply_factory_shorthand(context):
+    """When use_factory:=true, route launch defaults for factory OBJ/MTL world."""
+    if context.perform_substitution(LaunchConfiguration("use_factory")) != "true":
+        return []
+    return [
+        SetLaunchConfiguration("world", "anhc_factory"),
+        SetLaunchConfiguration("gz_world_name", "anhc_factory_world"),
+        # Factory environment has no bundled static map file yet.
+        SetLaunchConfiguration("use_slam", "true"),
     ]
 
 
@@ -274,16 +287,20 @@ def _localization_and_lifecycle(context):
     ]
 
 
-def _gz_set_pose_service_bridge(context):
-    """Expose Gazebo ``/world/<name>/set_pose`` on ROS so ``anhc_initialpose_to_gz`` works."""
+def _gz_entity_services_bridge(context):
+    """Expose Gazebo entity services used by nav + benchmark dynamic obstacles."""
     world = context.perform_substitution(LaunchConfiguration("gz_world_name"))
-    arg = f"/world/{world}/set_pose@ros_gz_interfaces/srv/SetEntityPose"
+    args = [
+        f"/world/{world}/set_pose@ros_gz_interfaces/srv/SetEntityPose",
+        f"/world/{world}/create@ros_gz_interfaces/srv/SpawnEntity",
+        f"/world/{world}/remove@ros_gz_interfaces/srv/DeleteEntity",
+    ]
     return [
         Node(
             package="ros_gz_bridge",
             executable="parameter_bridge",
-            name="gz_set_pose_bridge",
-            arguments=[arg],
+            name="gz_entity_services_bridge",
+            arguments=args,
             parameters=[{"use_sim_time": True}],
             output="screen",
         )
@@ -325,6 +342,14 @@ def generate_launch_description() -> LaunchDescription:
                 description=(
                     "Shorthand: when true, sets world:=anhc_office_v2, "
                     "use_slam:=true, and gz_world_name:=anhc_office_v2_world."
+                ),
+            ),
+            DeclareLaunchArgument(
+                "use_factory",
+                default_value="false",
+                description=(
+                    "Shorthand: when true, sets world:=anhc_factory, "
+                    "use_slam:=true, and gz_world_name:=anhc_factory_world."
                 ),
             ),
             DeclareLaunchArgument(
@@ -385,9 +410,10 @@ def generate_launch_description() -> LaunchDescription:
                 description="Must stay false for bundled slam_toolbox launch pattern.",
             ),
             OpaqueFunction(function=_apply_office_v2_shorthand),
+            OpaqueFunction(function=_apply_factory_shorthand),
             OpaqueFunction(function=_apply_world_defaults),
             sim_launch,
-            OpaqueFunction(function=_gz_set_pose_service_bridge),
+            OpaqueFunction(function=_gz_entity_services_bridge),
             Node(
                 package="anhc_simulation",
                 executable="anhc_initialpose_to_gz.py",

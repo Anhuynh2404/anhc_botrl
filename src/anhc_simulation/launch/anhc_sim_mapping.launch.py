@@ -5,15 +5,52 @@
 """
 
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription, LogInfo
+from launch.actions import (
+    DeclareLaunchArgument,
+    IncludeLaunchDescription,
+    LogInfo,
+    OpaqueFunction,
+    SetLaunchConfiguration,
+)
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch_ros.substitutions import FindPackageShare
+
+_AUTO = "__auto__"
+
+
+def _apply_slam_params_default(context):
+    world = context.perform_substitution(LaunchConfiguration("world"))
+    slam_params = context.perform_substitution(LaunchConfiguration("slam_params_file"))
+    if slam_params != _AUTO:
+        return []
+    if world == "anhc_factory":
+        return [
+            SetLaunchConfiguration(
+                "slam_params_file",
+                PathJoinSubstitution(
+                    [
+                        FindPackageShare("anhc_localization"),
+                        "config",
+                        "anhc_slam_mapping_factory.yaml",
+                    ]
+                ),
+            )
+        ]
+    return [
+        SetLaunchConfiguration(
+            "slam_params_file",
+            PathJoinSubstitution(
+                [FindPackageShare("anhc_localization"), "config", "anhc_slam_mapping.yaml"]
+            ),
+        )
+    ]
 
 
 def generate_launch_description() -> LaunchDescription:
     world = LaunchConfiguration("world")
     use_rviz = LaunchConfiguration("use_rviz")
+    slam_params_file = LaunchConfiguration("slam_params_file")
     sim_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             [
@@ -44,6 +81,7 @@ def generate_launch_description() -> LaunchDescription:
         ),
         launch_arguments={
             "use_rviz": use_rviz,
+            "slam_params_file": slam_params_file,
         }.items(),
     )
 
@@ -59,12 +97,22 @@ def generate_launch_description() -> LaunchDescription:
                 default_value="true",
                 description="Launch RViz2 for mapping visualization.",
             ),
+            DeclareLaunchArgument(
+                "slam_params_file",
+                default_value=_AUTO,
+                description=(
+                    "SLAM Toolbox mapping params YAML. '__auto__' selects "
+                    "anhc_slam_mapping_factory.yaml for world:=anhc_factory, "
+                    "otherwise anhc_slam_mapping.yaml."
+                ),
+            ),
             LogInfo(
                 msg=(
                     "Drive the robot around the entire environment, then run: "
                     "bash scripts/anhc_save_map.sh"
                 )
             ),
+            OpaqueFunction(function=_apply_slam_params_default),
             sim_launch,
             mapping_launch,
         ]

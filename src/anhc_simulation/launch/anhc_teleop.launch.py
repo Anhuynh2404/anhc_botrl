@@ -29,7 +29,8 @@ def generate_launch_description() -> LaunchDescription:
     ros_setup = f"/opt/ros/{ros_distro}/setup.bash"
 
     # Defaults (ros2 run -p); user can still w/x/e/c in teleop.
-    _spd, _turn, _rep, _key = 0.28, 0.65, 15.0, 0.4
+    # Conservative defaults for SLAM mapping stability on large indoor meshes.
+    _spd, _turn, _rep, _key = 0.16, 0.32, 15.0, 0.4
     _ros_args = (
         "--ros-args -r /cmd_vel:=/cmd_vel "
         f"-p use_sim_time:=true -p speed:={_spd} -p turn:={_turn} "

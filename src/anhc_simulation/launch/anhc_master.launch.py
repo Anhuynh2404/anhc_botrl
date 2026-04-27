@@ -46,6 +46,17 @@ def _apply_office_v2_shorthand(context):
     ]
 
 
+def _apply_factory_shorthand(context):
+    """When use_factory:=true, force world and SLAM mode for factory."""
+    if context.perform_substitution(LaunchConfiguration("use_factory")) != "true":
+        return []
+    return [
+        SetLaunchConfiguration("world", "anhc_factory"),
+        # factory has no prebuilt static map in this package.
+        SetLaunchConfiguration("use_slam", "true"),
+    ]
+
+
 def generate_launch_description() -> LaunchDescription:
 
     # ── arguments ──────────────────────────────────────────────────────────────
@@ -107,6 +118,14 @@ def generate_launch_description() -> LaunchDescription:
         default_value="false",
         description=(
             "Shorthand: when true, sets world:=anhc_office_v2 and use_slam:=true "
+            "(no pre-scanned static map)."
+        ),
+    )
+    use_factory_arg = DeclareLaunchArgument(
+        "use_factory",
+        default_value="false",
+        description=(
+            "Shorthand: when true, sets world:=anhc_factory and use_slam:=true "
             "(no pre-scanned static map)."
         ),
     )
@@ -197,7 +216,9 @@ def generate_launch_description() -> LaunchDescription:
         map_file_arg,
         use_slam_arg,
         use_office_v2_arg,
+        use_factory_arg,
         OpaqueFunction(function=_apply_office_v2_shorthand),
+        OpaqueFunction(function=_apply_factory_shorthand),
         sim_launch,
         perception_launch,
         planning_launch,
