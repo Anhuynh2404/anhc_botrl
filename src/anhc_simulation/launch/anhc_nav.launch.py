@@ -84,8 +84,6 @@ def _apply_factory_shorthand(context):
     return [
         SetLaunchConfiguration("world", "anhc_factory"),
         SetLaunchConfiguration("gz_world_name", "anhc_factory_world"),
-        # Factory environment has no bundled static map file yet.
-        SetLaunchConfiguration("use_slam", "true"),
     ]
 
 
@@ -348,8 +346,8 @@ def generate_launch_description() -> LaunchDescription:
                 "use_factory",
                 default_value="false",
                 description=(
-                    "Shorthand: when true, sets world:=anhc_factory, "
-                    "use_slam:=true, and gz_world_name:=anhc_factory_world."
+                    "Shorthand: when true, sets world:=anhc_factory and "
+                    "gz_world_name:=anhc_factory_world."
                 ),
             ),
             DeclareLaunchArgument(

@@ -105,6 +105,14 @@ class AnhcGlobalPlannerNode(Node):
         self.declare_parameter("path_smooth_data_weight", 0.5)
         self.declare_parameter("path_smooth_smooth_weight", 0.3)
         self.declare_parameter("path_smooth_min_waypoints", 5)
+        self.declare_parameter("rl_model_path", "")
+        self.declare_parameter("rl_observation_radius_m", 4.0)
+        self.declare_parameter("rl_action_horizon", 160)
+        self.declare_parameter("rl_device", "cpu")
+        self.declare_parameter("rl_goal_tolerance_m", 0.30)
+        self.declare_parameter("rl_max_linear_speed", 0.8)
+        self.declare_parameter("rl_max_angular_speed", 1.6)
+        self.declare_parameter("rl_sim_dt_s", 0.15)
 
         self._costmap: OccupancyGrid | None = None
         self._have_global_costmap: bool = False
@@ -133,6 +141,8 @@ class AnhcGlobalPlannerNode(Node):
 
         self._pub_path = self.create_publisher(Path, "/planning/path", 10)
         self._pub_stats = self.create_publisher(String, "/planning/stats", 10)
+        # Retry pending goals when TF tree (map->base) becomes available after startup.
+        self._pending_goal_timer = self.create_timer(0.5, self._flush_pending_goal)
 
         self._planner: BasePlanner = self._build_planner()
         self.get_logger().info(
@@ -160,6 +170,7 @@ class AnhcGlobalPlannerNode(Node):
         self.get_logger().info(
             f"[anhc_global_planner] initial pose set: ({pos.x:.2f}, {pos.y:.2f})"
         )
+        self._flush_pending_goal()
 
     def _cb_goal(self, msg: PoseStamped) -> None:
         self._last_goal_msg = msg
@@ -187,8 +198,9 @@ class AnhcGlobalPlannerNode(Node):
         # --- resolve robot start pose from TF or /initialpose ---
         start = self._get_robot_pose()
         if start is None:
+            self._pending_goal = msg
             self.get_logger().warn(
-                "[anhc_global_planner] could not determine robot pose — ignoring goal"
+                "[anhc_global_planner] robot pose unavailable — queueing goal until TF/localization is ready"
             )
             return
 
@@ -342,7 +354,17 @@ class AnhcGlobalPlannerNode(Node):
             return cls(obstacle_threshold=ot, **_smooth_kwargs)
 
         if cls is RLPlanner:
-            return cls(obstacle_threshold=ot)
+            return cls(
+                model_path=self.get_parameter("rl_model_path").get_parameter_value().string_value,
+                observation_radius_m=self.get_parameter("rl_observation_radius_m").get_parameter_value().double_value,
+                action_horizon=self.get_parameter("rl_action_horizon").get_parameter_value().integer_value,
+                device=self.get_parameter("rl_device").get_parameter_value().string_value,
+                obstacle_threshold=ot,
+                goal_tolerance_m=self.get_parameter("rl_goal_tolerance_m").get_parameter_value().double_value,
+                max_linear_speed=self.get_parameter("rl_max_linear_speed").get_parameter_value().double_value,
+                max_angular_speed=self.get_parameter("rl_max_angular_speed").get_parameter_value().double_value,
+                sim_dt_s=self.get_parameter("rl_sim_dt_s").get_parameter_value().double_value,
+            )
 
         return cls()
 

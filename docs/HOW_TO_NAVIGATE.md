@@ -18,6 +18,7 @@ cd ~/anhc_botrl
 source /opt/ros/jazzy/setup.bash
 source install/setup.bash
 ros2 launch anhc_simulation anhc_sim_mapping.launch.py world:=anhc_office_v2 use_rviz:=true
+ros2 launch anhc_simulation anhc_sim_mapping.launch.py world:=anhc_factory use_rviz:=true
 ```
 
 Neu RViz nhap nhay TF hoac may yeu GPU, dung cach on dinh hon:

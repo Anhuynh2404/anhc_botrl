@@ -74,7 +74,7 @@ def generate_launch_description():
             "-x",
             "0.0",
             "-y",
-            "0.0",
+            "2.0",
             "-z",
             "0.15",
             "-Y",
@@ -156,7 +156,19 @@ def generate_launch_description():
                 package="anhc_simulation",
                 executable="anhc_scan_frame_relay.py",
                 name="anhc_scan_frame_relay",
-                parameters=[{"use_sim_time": True}],
+                parameters=[
+                    {
+                        "use_sim_time": True,
+                        # Keep close obstacle visibility while removing self-hit artifacts.
+                        "min_valid_range": 0.18,
+                        "self_filter_enabled": True,
+                        "robot_half_length": 0.40,
+                        "robot_half_width": 0.40,
+                        "self_filter_margin": 0.03,
+                        "lidar_offset_x": 0.10,
+                        "lidar_offset_y": 0.00,
+                    }
+                ],
                 output="screen",
             ),
             Node(

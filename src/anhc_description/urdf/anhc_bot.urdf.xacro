@@ -102,6 +102,7 @@
   <joint name="lidar_joint" type="fixed">
     <parent link="base_link"/>
     <child link="lidar_link"/>
+    <!-- Put LiDAR scan plane clearly above chassis top (0.6 m) to avoid self-hits. -->
     <origin xyz="0.1 0 0.4" rpy="0 0 0"/>
   </joint>
 

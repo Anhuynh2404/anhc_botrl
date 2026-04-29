@@ -60,7 +60,7 @@ slam_toolbox:
     map_update_interval: 0.50
     publish_period_sec: 1.0
     max_laser_range: 18.0
-    minimum_laser_range: 0.15
+    minimum_laser_range: 0.30
     minimum_time_interval: 0.50
 
     transform_publish_period: 0.10
